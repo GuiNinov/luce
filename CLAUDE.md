@@ -128,6 +128,38 @@ cargo test -- --nocapture
 - Use appropriate data structures for the use case
 - Consider memory allocation patterns in hot paths
 
+### Mandatory Code Quality Workflow
+
+**CRITICAL REQUIREMENTS - MUST BE FOLLOWED:**
+
+Claude Code sessions **MUST** complete these steps before concluding any code changes:
+
+1. **Run Tests First**: Execute `cargo test` to ensure all existing functionality continues to work
+   - All tests must pass before proceeding
+   - Fix any test failures before making additional changes
+   - Add new tests for any new functionality
+
+2. **Apply Code Quality Checks**: Run linting and formatting after all changes
+   ```bash
+   # Format code
+   cargo fmt --all
+   
+   # Run Clippy with strict settings
+   cargo clippy --all-targets --all-features -- -D warnings
+   ```
+   - Code must pass all Clippy checks without warnings
+   - Formatting must be consistent across the codebase
+   - Fix all linting issues before concluding work
+
+**Workflow Summary:**
+1. Make code changes
+2. `cargo test` (fix failures if any)
+3. `cargo fmt --all`
+4. `cargo clippy --all-targets --all-features -- -D warnings` (fix issues if any)
+5. Final verification: `cargo test` (ensure formatting didn't break anything)
+
+**Non-compliance**: Any code changes that don't follow this workflow may be rejected or require rework.
+
 ### Package Development Guidelines
 
 **Independence Principle:**
