@@ -29,7 +29,7 @@ impl Default for TaskPriority {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
     pub id: TaskId,
     pub title: String,

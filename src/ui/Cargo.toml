@@ -1,0 +1,36 @@
+[package]
+name = "luce-ui"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+luce-shared = { path = "../shared" }
+yew = { workspace = true, features = ["csr"] }
+wasm-bindgen = { workspace = true }
+gloo = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+wasm-bindgen-futures = "0.4"
+
+[dependencies.web-sys]
+workspace = true
+features = [
+  "console",
+  "Document",
+  "Element",
+  "HtmlElement",
+  "Window",
+  "MouseEvent",
+  "KeyboardEvent",
+  "Event",
+  "EventTarget",
+  "Storage",
+  "Location",
+  "HtmlInputElement",
+  "HtmlTextAreaElement", 
+  "HtmlSelectElement",
+]
