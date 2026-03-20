@@ -97,7 +97,6 @@ All development work must follow incremental practices:
 - Write minimal code to make tests pass
 - Refactor in small, focused steps
 - Document simple, clear interfaces
-- Validate each increment before proceeding
 
 ### Testing Requirements
 
