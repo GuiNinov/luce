@@ -41,7 +41,11 @@ pub fn textarea(props: &TextareaProps) -> Html {
         "focus-visible:ring-offset-2",
         "disabled:cursor-not-allowed",
         "disabled:opacity-50",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     let oninput = props.oninput.clone();

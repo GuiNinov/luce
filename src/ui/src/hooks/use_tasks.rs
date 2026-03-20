@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use luce_shared::task::{Task, TaskPriority};
+use yew::prelude::*;
 
 #[hook]
 pub fn use_tasks() -> (Vec<Task>, Callback<Task>) {
@@ -17,7 +17,7 @@ pub fn use_tasks() -> (Vec<Task>, Callback<Task>) {
                 .with_priority(TaskPriority::Low),
         ]
     });
-    
+
     let add_task = {
         let tasks = tasks.clone();
         Callback::from(move |new_task: Task| {

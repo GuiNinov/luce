@@ -1,13 +1,15 @@
-use yew::prelude::*;
+use luce_shared::task::{Task, TaskPriority};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
-use luce_shared::task::{Task, TaskPriority};
+use yew::prelude::*;
 
-use crate::components::ui::dialog::{Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter};
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::dialog::{
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+};
 use crate::components::ui::input::Input;
-use crate::components::ui::textarea::Textarea;
 use crate::components::ui::select::{Select, SelectOption};
+use crate::components::ui::textarea::Textarea;
 
 #[derive(Properties, PartialEq)]
 pub struct AddTaskModalProps {
@@ -20,8 +22,8 @@ pub struct AddTaskModalProps {
 
 #[function_component(AddTaskModal)]
 pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
-    let title = use_state(|| String::new());
-    let description = use_state(|| String::new());
+    let title = use_state(String::new);
+    let description = use_state(String::new);
     let priority = use_state(|| TaskPriority::Normal);
 
     // Reset form when modal closes
@@ -29,7 +31,7 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
         let title = title.clone();
         let description = description.clone();
         let priority = priority.clone();
-        
+
         move |&is_open| {
             if !is_open {
                 title.set(String::new());
@@ -50,7 +52,11 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
     let on_description_input = {
         let description = description.clone();
         Callback::from(move |e: InputEvent| {
-            let textarea = e.target().unwrap().dyn_into::<web_sys::HtmlTextAreaElement>().unwrap();
+            let textarea = e
+                .target()
+                .unwrap()
+                .dyn_into::<web_sys::HtmlTextAreaElement>()
+                .unwrap();
             description.set(textarea.value());
         })
     };
@@ -58,7 +64,11 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
     let on_priority_change = {
         let priority = priority.clone();
         Callback::from(move |e: Event| {
-            let select = e.target().unwrap().dyn_into::<web_sys::HtmlSelectElement>().unwrap();
+            let select = e
+                .target()
+                .unwrap()
+                .dyn_into::<web_sys::HtmlSelectElement>()
+                .unwrap();
             let priority_value = match select.value().as_str() {
                 "low" => TaskPriority::Low,
                 "normal" => TaskPriority::Normal,
@@ -84,18 +94,17 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
         let description = description.clone();
         let priority = priority.clone();
         let oncreate = props.oncreate.clone();
-        
+
         Callback::from(move |_| {
             if !title.trim().is_empty() {
                 let task = if description.trim().is_empty() {
-                    Task::new(title.trim().to_string())
-                        .with_priority((*priority).clone())
+                    Task::new(title.trim().to_string()).with_priority(*priority)
                 } else {
                     Task::new(title.trim().to_string())
                         .with_description(description.trim().to_string())
-                        .with_priority((*priority).clone())
+                        .with_priority(*priority)
                 };
-                
+
                 if let Some(callback) = &oncreate {
                     callback.emit(task);
                 }
@@ -106,7 +115,7 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
     let can_create = !title.trim().is_empty();
     let priority_value = match *priority {
         TaskPriority::Low => "low",
-        TaskPriority::Normal => "normal", 
+        TaskPriority::Normal => "normal",
         TaskPriority::High => "high",
         TaskPriority::Critical => "critical",
     };
@@ -163,13 +172,13 @@ pub fn add_task_modal(props: &AddTaskModalProps) -> Html {
                 </div>
 
                 <DialogFooter>
-                    <Button 
+                    <Button
                         variant={ButtonVariant::Outline}
                         onclick={on_cancel}
                     >
                         {"Cancel"}
                     </Button>
-                    <Button 
+                    <Button
                         variant={ButtonVariant::Primary}
                         disabled={!can_create}
                         onclick={on_create}

@@ -102,7 +102,7 @@ impl TaskGraph {
                 task.dependencies.iter().all(|dep_id| {
                     self.tasks
                         .get(dep_id)
-                        .map_or(false, |dep| dep.is_completed())
+                        .is_some_and(|dep| dep.is_completed())
                 }))
             })
             .collect()
@@ -126,7 +126,7 @@ impl TaskGraph {
                         task.dependencies.iter().all(|dep_id| {
                             self.tasks
                                 .get(dep_id)
-                                .map_or(false, |dep| dep.is_completed())
+                                .is_some_and(|dep| dep.is_completed())
                         })
                     },
                     _ => false,
@@ -143,7 +143,7 @@ impl TaskGraph {
                 !task.dependencies.iter().all(|dep_id| {
                     self.tasks
                         .get(dep_id)
-                        .map_or(false, |dep| dep.is_completed())
+                        .is_some_and(|dep| dep.is_completed())
                 })
             })
             .collect()
@@ -166,7 +166,7 @@ impl TaskGraph {
                    task.dependencies.iter().all(|dep_id| {
                        self.tasks
                            .get(dep_id)
-                           .map_or(false, |dep| dep.is_completed())
+                           .is_some_and(|dep| dep.is_completed())
                    }) {
                     Some(*id)
                 } else {
@@ -200,7 +200,7 @@ impl TaskGraph {
                 .filter(|dep_id| {
                     self.tasks
                         .get(dep_id)
-                        .map_or(false, |t| matches!(t.status, TaskStatus::Ready))
+                        .is_some_and(|t| matches!(t.status, TaskStatus::Ready))
                 })
                 .copied()
                 .collect();

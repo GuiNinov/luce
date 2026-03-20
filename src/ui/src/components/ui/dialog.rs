@@ -12,7 +12,7 @@ pub struct DialogProps {
 #[function_component(Dialog)]
 pub fn dialog(props: &DialogProps) -> Html {
     let onclose = props.onclose.clone();
-    
+
     let backdrop_onclick = {
         let onclose = onclose.clone();
         Callback::from(move |_| {
@@ -26,11 +26,11 @@ pub fn dialog(props: &DialogProps) -> Html {
         html! {
             <div class="fixed inset-0 z-50 flex items-center justify-center">
                 // Backdrop
-                <div 
-                    class="fixed inset-0 bg-black/80" 
+                <div
+                    class="fixed inset-0 bg-black/80"
                     onclick={backdrop_onclick}
                 ></div>
-                
+
                 // Dialog content
                 <div class="relative z-50">
                     { for props.children.iter() }
@@ -69,7 +69,11 @@ pub fn dialog_content(props: &DialogContentProps) -> Html {
         "shadow-lg",
         "duration-200",
         "rounded-lg",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     html! {
@@ -94,7 +98,11 @@ pub fn dialog_header(props: &DialogHeaderProps) -> Html {
         "space-y-1.5",
         "text-center",
         "sm:text-left",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     html! {
@@ -118,7 +126,11 @@ pub fn dialog_title(props: &DialogTitleProps) -> Html {
         "font-semibold",
         "leading-none",
         "tracking-tight",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     html! {
@@ -140,7 +152,11 @@ pub fn dialog_description(props: &DialogDescriptionProps) -> Html {
     let classes = classes!(
         "text-sm",
         "text-muted-foreground",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     html! {
@@ -165,7 +181,11 @@ pub fn dialog_footer(props: &DialogFooterProps) -> Html {
         "sm:flex-row",
         "sm:justify-end",
         "sm:space-x-2",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     html! {

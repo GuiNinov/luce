@@ -16,9 +16,13 @@ pub fn card(props: &CardProps) -> Html {
         "bg-card",
         "text-card-foreground",
         "shadow-sm",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <div class={classes}>
             { for props.children.iter() }
@@ -37,12 +41,16 @@ pub struct CardHeaderProps {
 pub fn card_header(props: &CardHeaderProps) -> Html {
     let classes = classes!(
         "flex",
-        "flex-col", 
+        "flex-col",
         "space-y-1.5",
         "p-6",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <div class={classes}>
             { for props.children.iter() }
@@ -64,9 +72,13 @@ pub fn card_title(props: &CardTitleProps) -> Html {
         "font-semibold",
         "leading-none",
         "tracking-tight",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <h3 class={classes}>
             { for props.children.iter() }
@@ -86,9 +98,13 @@ pub fn card_description(props: &CardDescriptionProps) -> Html {
     let classes = classes!(
         "text-sm",
         "text-muted-foreground",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <p class={classes}>
             { for props.children.iter() }
@@ -108,9 +124,13 @@ pub fn card_content(props: &CardContentProps) -> Html {
     let classes = classes!(
         "p-6",
         "pt-0",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <div class={classes}>
             { for props.children.iter() }
@@ -132,9 +152,13 @@ pub fn card_footer(props: &CardFooterProps) -> Html {
         "items-center",
         "p-6",
         "pt-0",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
-    
+
     html! {
         <div class={classes}>
             { for props.children.iter() }

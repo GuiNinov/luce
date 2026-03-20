@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use crate::components::ui::button::{Button, ButtonVariant};
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct HeaderProps {
@@ -30,8 +30,8 @@ pub fn header(props: &HeaderProps) -> Html {
                             {"Parallel Task Manager"}
                         </p>
                     </div>
-                    
-                    <Button 
+
+                    <Button
                         variant={ButtonVariant::Primary}
                         onclick={on_add_click}
                     >

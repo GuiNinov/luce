@@ -14,8 +14,8 @@ impl Default for ViewType {
 
 #[hook]
 pub fn use_view_state() -> (ViewType, Callback<ViewType>) {
-    let view_state = use_state(|| ViewType::default());
-    
+    let view_state = use_state(ViewType::default);
+
     let set_view = {
         let view_state = view_state.clone();
         Callback::from(move |new_view: ViewType| {

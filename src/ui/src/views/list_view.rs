@@ -1,6 +1,6 @@
-use yew::prelude::*;
-use luce_shared::task::Task;
 use crate::components::task::task_card::TaskCard;
+use luce_shared::task::Task;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ListViewProps {
@@ -40,7 +40,7 @@ pub fn list_view(props: &ListViewProps) -> Html {
                         let selected = *selected_task == Some(index);
                         let task_clone = task.clone();
                         let selected_task_clone = selected_task.clone();
-                        
+
                         let on_select = Callback::from(move |_| {
                             if selected {
                                 selected_task_clone.set(None);

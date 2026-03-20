@@ -1,7 +1,7 @@
-use yew::prelude::*;
-use luce_shared::task::{Task, TaskPriority};
-use crate::components::ui::card::{Card, CardContent, CardHeader, CardTitle, CardDescription};
 use crate::components::task::status_badge::StatusBadge;
+use crate::components::ui::card::{Card, CardContent, CardDescription, CardHeader, CardTitle};
+use luce_shared::task::{Task, TaskPriority};
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TaskCardProps {
@@ -45,7 +45,7 @@ pub fn task_card(props: &TaskCardProps) -> Html {
     let creation_date = props.task.created_at.format("%b %d, %Y").to_string();
 
     html! {
-        <Card 
+        <Card
             class={AttrValue::from(card_classes)}
         >
             <div onclick={onclick}>
@@ -59,7 +59,7 @@ pub fn task_card(props: &TaskCardProps) -> Html {
                         </div>
                         <StatusBadge status={props.task.status.clone()} />
                     </div>
-                    
+
                     {if let Some(ref description) = props.task.description {
                         html! {
                             <CardDescription>

@@ -38,7 +38,11 @@ pub fn select(props: &SelectProps) -> Html {
         "focus:ring-offset-2",
         "disabled:cursor-not-allowed",
         "disabled:opacity-50",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     let onchange = props.onchange.clone();
@@ -71,7 +75,7 @@ pub struct SelectOptionProps {
 #[function_component(SelectOption)]
 pub fn select_option(props: &SelectOptionProps) -> Html {
     html! {
-        <option 
+        <option
             value={props.value.clone()}
             disabled={props.disabled}
         >

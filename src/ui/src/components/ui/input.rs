@@ -45,7 +45,11 @@ pub fn input(props: &InputProps) -> Html {
         "focus-visible:ring-offset-2",
         "disabled:cursor-not-allowed",
         "disabled:opacity-50",
-        props.class.as_ref().map(|c| c.to_string()).unwrap_or_default()
+        props
+            .class
+            .as_ref()
+            .map(|c| c.to_string())
+            .unwrap_or_default()
     );
 
     let input_type = props.r#type.clone().unwrap_or_else(|| "text".into());

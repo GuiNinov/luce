@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use luce_shared::task::Task;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct GraphViewProps {
@@ -42,7 +42,7 @@ pub fn graph_view(props: &GraphViewProps) -> Html {
                         <p class="text-sm text-muted-foreground max-w-md">
                             {"SVG-based graph visualization will be implemented here to show task relationships and dependencies."}
                         </p>
-                        
+
                         // Simple task list for now
                         <div class="mt-6 text-left">
                             <h4 class="text-sm font-medium mb-2">{"Current Tasks:"}</h4>

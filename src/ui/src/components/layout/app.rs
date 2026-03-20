@@ -1,12 +1,12 @@
 use yew::prelude::*;
 
 use crate::components::layout::header::Header;
-use crate::components::ui::tabs::{Tabs, TabsList, TabsTrigger, TabsContent};
-use crate::hooks::use_view_state::{use_view_state, ViewType};
-use crate::hooks::use_tasks::use_tasks;
-use crate::views::list_view::ListView;
-use crate::views::graph_view::GraphView;
 use crate::components::task::add_task_modal::AddTaskModal;
+use crate::components::ui::tabs::{Tabs, TabsContent, TabsList, TabsTrigger};
+use crate::hooks::use_tasks::use_tasks;
+use crate::hooks::use_view_state::{use_view_state, ViewType};
+use crate::views::graph_view::GraphView;
+use crate::views::list_view::ListView;
 
 #[function_component(App)]
 pub fn app() -> Html {
@@ -54,19 +54,19 @@ pub fn app() -> Html {
     html! {
         <div class="min-h-screen bg-background text-foreground">
             <Header on_add_task={on_add_task_click} />
-            
+
             <main class="container mx-auto px-4 py-6">
                 <Tabs class="w-full">
                     <TabsList class="grid w-full grid-cols-2 mb-6">
-                        <TabsTrigger 
-                            value="list" 
+                        <TabsTrigger
+                            value="list"
                             active={current_view == ViewType::List}
                             onclick={on_list_tab_click}
                         >
                             {"📋 List View"}
                         </TabsTrigger>
-                        <TabsTrigger 
-                            value="graph" 
+                        <TabsTrigger
+                            value="graph"
                             active={current_view == ViewType::Graph}
                             onclick={on_graph_tab_click}
                         >
@@ -74,15 +74,15 @@ pub fn app() -> Html {
                         </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent 
-                        value="list" 
+                    <TabsContent
+                        value="list"
                         active={current_view == ViewType::List}
                     >
                         <ListView tasks={tasks.clone()} />
                     </TabsContent>
 
-                    <TabsContent 
-                        value="graph" 
+                    <TabsContent
+                        value="graph"
                         active={current_view == ViewType::Graph}
                     >
                         <GraphView tasks={tasks.clone()} />
