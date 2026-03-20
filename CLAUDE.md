@@ -57,6 +57,7 @@ src/
 - **Package Independence**: Each package can be developed in parallel
 - **Test-First**: Comprehensive testing strategy across all packages
 - **Integration-Focused**: Clear interfaces between packages for seamless coordination
+- **Incremental & Simple**: Always work in small, manageable increments keeping solutions simple
 
 **Key Files to Understand**:
 - `shared/src/task.rs` - Core Task data structures and methods
@@ -65,6 +66,37 @@ src/
 - `mcp/src/server.rs` - Claude Code integration and session coordination
 
 ## Development Guidelines
+
+### Incremental Development Philosophy
+
+**CORE PRINCIPLE: Work Small, Keep Simple**
+
+All development work must follow incremental practices:
+
+**Small Steps Approach:**
+- Break large features into minimal, testable components
+- Make one logical change per commit
+- Prefer multiple small PRs over large, complex ones
+- Each increment should be independently functional and testable
+
+**Simplicity First:**
+- Choose the simplest solution that meets requirements
+- Avoid over-engineering or premature optimization
+- Prefer clear, readable code over clever implementations
+- Add complexity only when absolutely necessary
+
+**Incremental Benefits:**
+- Easier code review and debugging
+- Faster feedback cycles and iteration
+- Reduced risk of introducing bugs
+- Better collaboration between Claude sessions
+- Simpler rollback if issues arise
+
+**Implementation Guidelines:**
+- Start with basic functionality, then enhance
+- Write minimal code to make tests pass
+- Refactor in small, focused steps
+- Document simple, clear interfaces
 
 ### Testing Requirements
 
