@@ -3,7 +3,7 @@ use std::sync::Arc;
 use luce_core::{
     CreateTaskInput, CreateTaskUseCase, GetTaskInput, GetTaskUseCase, ListTasksInput,
     ListTasksUseCase, SqliteTaskRepository, TaskFilter, TaskRepository, UpdateTaskStatusInput,
-    UpdateTaskStatusUseCase, UseCase,
+    UpdateTaskStatusUseCase, UseCase, CredentialService,
 };
 use luce_shared::LuceError;
 use luce_shared::{Task, TaskId, TaskStatus};
@@ -17,17 +17,18 @@ pub struct TaskService {
     get_task_uc: GetTaskUseCase<SqliteTaskRepository>,
     list_tasks_uc: ListTasksUseCase<SqliteTaskRepository>,
     update_status_uc: UpdateTaskStatusUseCase<SqliteTaskRepository>,
+    pub credential_service: Arc<CredentialService>,
 }
 
 impl TaskService {
-    pub async fn new(_pool: SqlitePool) -> Result<Self, LuceError> {
-        let database_url = "sqlite:memory:"; // TODO: Get from pool or configuration
+    pub async fn new(pool: SqlitePool) -> Result<Self, LuceError> {
+        let task_repo1 = SqliteTaskRepository::from_pool(pool.clone());
+        let task_repo2 = SqliteTaskRepository::from_pool(pool.clone());
+        let task_repo3 = SqliteTaskRepository::from_pool(pool.clone());
+        let task_repo4 = SqliteTaskRepository::from_pool(pool.clone());
+        let task_repo5 = SqliteTaskRepository::from_pool(pool.clone());
 
-        let task_repo1 = SqliteTaskRepository::new(database_url).await?;
-        let task_repo2 = SqliteTaskRepository::new(database_url).await?;
-        let task_repo3 = SqliteTaskRepository::new(database_url).await?;
-        let task_repo4 = SqliteTaskRepository::new(database_url).await?;
-        let task_repo5 = SqliteTaskRepository::new(database_url).await?;
+        let credential_service = Arc::new(CredentialService::from_pool(pool));
 
         Ok(Self {
             create_task_uc: CreateTaskUseCase::new(task_repo1),
@@ -35,6 +36,7 @@ impl TaskService {
             list_tasks_uc: ListTasksUseCase::new(task_repo3),
             update_status_uc: UpdateTaskStatusUseCase::new(task_repo4),
             task_repo: Arc::new(task_repo5),
+            credential_service,
         })
     }
 

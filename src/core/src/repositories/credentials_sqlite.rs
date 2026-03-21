@@ -49,6 +49,14 @@ impl SqliteCredentialRepository {
         })
     }
 
+    pub fn from_pool(pool: SqlitePool) -> Self {
+        Self {
+            pool,
+            encryption_key: std::env::var("LUCE_ENCRYPTION_KEY")
+                .unwrap_or_else(|_| "default-key-change-in-production".to_string()),
+        }
+    }
+
     // Simple encryption - in production use proper encryption library
     fn encrypt(&self, data: &str) -> String {
         // TODO: Implement proper encryption with AES or similar

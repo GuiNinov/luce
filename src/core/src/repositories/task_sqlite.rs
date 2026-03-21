@@ -22,6 +22,10 @@ impl SqliteTaskRepository {
         Ok(Self { pool })
     }
 
+    pub fn from_pool(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
     fn serialize_metadata(metadata: &HashMap<String, String>) -> Result<String, LuceError> {
         serde_json::to_string(metadata).map_err(LuceError::SerializationError)
     }

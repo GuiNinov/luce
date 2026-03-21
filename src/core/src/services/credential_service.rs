@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use sqlx::SqlitePool;
 
 use crate::repositories::SqliteCredentialRepository;
 use crate::usecases::{
@@ -35,6 +36,20 @@ impl CredentialService {
             delete_credential_uc: DeleteCredentialUseCase::new(repo.clone()),
             credential_repo: repo,
         })
+    }
+
+    pub fn from_pool(pool: SqlitePool) -> Self {
+        let repo = Arc::new(SqliteCredentialRepository::from_pool(pool));
+
+        Self {
+            create_credential_uc: CreateCredentialUseCase::new(repo.clone()),
+            get_credential_uc: GetCredentialUseCase::new(repo.clone()),
+            get_credential_data_uc: GetCredentialDataUseCase::new(repo.clone()),
+            list_credentials_uc: ListCredentialsUseCase::new(repo.clone()),
+            update_credential_uc: UpdateCredentialUseCase::new(repo.clone()),
+            delete_credential_uc: DeleteCredentialUseCase::new(repo.clone()),
+            credential_repo: repo,
+        }
     }
 
     /// Create a new credential
