@@ -4,8 +4,6 @@ members = [
     "src/cli",
     "src/mcp",
     "src/ui",
-    "src/core",
-    "src/migrations",
 ]
 resolver = "2"
 
