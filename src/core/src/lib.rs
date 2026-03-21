@@ -1,10 +1,12 @@
 pub mod repositories;
 pub mod usecases;
 
-pub use repositories::{TaskRepository, GraphRepository, SqliteTaskRepository, SqliteGraphRepository};
-pub use usecases::{UseCase};
+pub use repositories::{
+    GraphRepository, SqliteGraphRepository, SqliteTaskRepository, TaskRepository,
+};
+pub use usecases::graph::{GraphStatistics, ParallelExecutionPlan, ParallelOpportunities};
 pub use usecases::task::*;
-pub use usecases::graph::{GraphStatistics, ParallelOpportunities, ParallelExecutionPlan};
+pub use usecases::UseCase;
 
 // Re-export shared types for convenience
-pub use luce_shared::{Task, TaskId, TaskStatus, TaskPriority, TaskGraph, LuceError};
+pub use luce_shared::{LuceError, Task, TaskGraph, TaskId, TaskPriority, TaskStatus};

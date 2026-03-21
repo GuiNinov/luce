@@ -1,5 +1,5 @@
-use luce_shared::LuceError;
 use crate::repositories::GraphRepository;
+use luce_shared::LuceError;
 
 pub struct ListGraphsUseCase<R: GraphRepository> {
     repository: R,
