@@ -16,7 +16,8 @@ use tracing::Level;
 
 use crate::{
     handlers::{
-        attachments::attachment_routes, integrations::integration_routes, tasks::task_routes,
+        attachments::attachment_routes, credentials::credential_routes, 
+        integrations::integration_routes, tasks::task_routes,
     },
     services::TaskService,
 };
@@ -45,6 +46,7 @@ impl ApiServer {
         Router::new()
             .nest("/api/v1", task_routes())
             .nest("/api/v1", attachment_routes())
+            .nest("/api/v1", credential_routes())
             .nest("/api/v1", integration_routes())
             .layer(Extension(task_service))
             .layer(ServiceBuilder::new().layer(trace).layer(cors))
@@ -73,18 +75,24 @@ pub async fn start_server(addr: SocketAddr, database_url: Option<&str>) -> anyho
         .compact()
         .init();
 
-    let database_url = database_url.unwrap_or("sqlite:luce.db");
+
+
+    let database_url = database_url.map(|s| s.to_string()).unwrap_or_else(|| {
+        std::env::current_dir()
+            .map(|dir| format!("sqlite:{}/luce.db", dir.display()))
+            .unwrap_or_else(|_| "luce.db".to_string())
+    });
 
     tracing::info!("Connecting to database: {}", database_url);
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(database_url)
+        .connect(&database_url)
         .await?;
 
     // Run migrations
-    sqlx::migrate!("../migrations/migrations")
-        .run(&pool)
-        .await?;
+    // sqlx::migrate!("../migrations/migrations")
+       // .run(&pool)
+        // .await?;
 
     let server = ApiServer::new(addr, pool);
     server.serve().await
