@@ -14,7 +14,10 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 
 import { TaskNode } from '@/components/task/task-node'
-import { Task, TaskEdge, TaskStatus } from '@/types/task'
+import { AddTaskModal } from '@/components/task/add-task-modal'
+import { BoardBackground } from '@/components/task/board-background'
+import { Task, TaskEdge, TaskStatus, TaskPriority } from '@/types/task'
+import { calculateTaskLayout } from '@/lib/layout'
 
 const nodeTypes = {
   taskNode: TaskNode,
@@ -26,27 +29,60 @@ interface GraphViewProps {
   selectedTasks: string[]
   onSelectTask: (taskId: string) => void
   onStatusChange: (taskId: string, status: TaskStatus) => void
+  onAddTask: (task: {
+    title: string
+    description?: string
+    priority: TaskPriority
+    dependencyId?: string
+    dependencyType?: 'input' | 'output'
+  }) => void
 }
 
-function GraphViewContent({ tasks, edges, selectedTasks, onSelectTask, onStatusChange }: GraphViewProps) {
+function GraphViewContent({ tasks, edges, selectedTasks, onSelectTask, onStatusChange, onAddTask }: GraphViewProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [flowEdges, setEdges, onEdgesChange] = useEdgesState([])
+  const [connectionModal, setConnectionModal] = useState<{
+    open: boolean
+    taskId: string
+    taskTitle: string
+    type: 'input' | 'output'
+  } | null>(null)
 
-  // Convert tasks to nodes
+  const handleCreateConnectedTask = useCallback((sourceTaskId: string, connectionType: 'input' | 'output') => {
+    const sourceTask = tasks.find(t => t.id === sourceTaskId)
+    if (!sourceTask) return
+
+    setConnectionModal({
+      open: true,
+      taskId: sourceTaskId,
+      taskTitle: sourceTask.title,
+      type: connectionType,
+    })
+  }, [tasks])
+
+  // Convert tasks to nodes with automatic layout
   useEffect(() => {
-    const flowNodes: Node[] = tasks.map((task, index) => ({
-      id: task.id,
-      type: 'taskNode',
-      position: { x: (index % 3) * 300, y: Math.floor(index / 3) * 200 },
-      data: {
-        task,
-        selected: selectedTasks.includes(task.id),
-        onStatusChange,
-      },
-    }))
+    const layout = calculateTaskLayout(tasks, edges)
+    
+    const flowNodes: Node[] = tasks.map((task) => {
+      const position = layout.positions.get(task.id) || { x: 0, y: 0 }
+      
+      return {
+        id: task.id,
+        type: 'taskNode',
+        position,
+        data: {
+          task,
+          selected: selectedTasks.includes(task.id),
+          onStatusChange,
+          onCreateConnectedTask: handleCreateConnectedTask,
+          xPos: position.x,
+        },
+      }
+    })
 
     setNodes(flowNodes)
-  }, [tasks, selectedTasks, onStatusChange, setNodes])
+  }, [tasks, edges, selectedTasks, onStatusChange, handleCreateConnectedTask, setNodes])
 
   // Convert task edges to flow edges
   useEffect(() => {
@@ -74,22 +110,42 @@ function GraphViewContent({ tasks, edges, selectedTasks, onSelectTask, onStatusC
   )
 
   return (
-    <div className="w-full h-[600px] border rounded-lg bg-background">
-      <ReactFlow
-        nodes={nodes}
-        edges={flowEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        nodeTypes={nodeTypes}
-        fitView
-        attributionPosition="bottom-left"
-      >
-        <Controls />
-        <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-      </ReactFlow>
-    </div>
+    <>
+      <div className="w-full h-[600px] border rounded-lg bg-white relative overflow-hidden">
+        <BoardBackground width={1600} height={600} />
+        <ReactFlow
+          nodes={nodes}
+          edges={flowEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          nodeTypes={nodeTypes}
+          fitView
+          attributionPosition="bottom-left"
+          className="bg-transparent"
+        >
+          <Controls />
+        </ReactFlow>
+      </div>
+      
+      {connectionModal && (
+        <AddTaskModal
+          open={connectionModal.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConnectionModal(null)
+            }
+          }}
+          initialConnection={{
+            taskId: connectionModal.taskId,
+            taskTitle: connectionModal.taskTitle,
+            type: connectionModal.type,
+          }}
+          onAddTask={onAddTask}
+        />
+      )}
+    </>
   )
 }
 

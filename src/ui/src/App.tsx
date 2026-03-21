@@ -53,6 +53,7 @@ function App() {
               selectedTasks={selectedTasks}
               onSelectTask={handleSelectTask}
               onStatusChange={updateTaskStatus}
+              onAddTask={addTask}
             />
           </TabsContent>
         </Tabs>

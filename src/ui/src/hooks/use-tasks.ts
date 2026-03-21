@@ -9,6 +9,8 @@ export function useTasks() {
     title: string
     description?: string
     priority: TaskPriority
+    dependencyId?: string
+    dependencyType?: 'input' | 'output'
   }) => {
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -20,7 +22,43 @@ export function useTasks() {
       created_at: new Date().toISOString(),
     }
 
-    setTasks(prev => [...prev, newTask])
+    setTasks(prev => {
+      const updatedTasks = [...prev, newTask]
+      
+      // Handle dependency connections
+      if (taskData.dependencyId && taskData.dependencyType) {
+        if (taskData.dependencyType === 'input') {
+          // New task feeds into the existing task
+          return updatedTasks.map(task => 
+            task.id === taskData.dependencyId
+              ? { ...task, dependencies: [...task.dependencies, newTask.id] }
+              : task
+          )
+        } else {
+          // New task depends on the existing task
+          return updatedTasks.map(task => 
+            task.id === newTask.id
+              ? { ...task, dependencies: [taskData.dependencyId] }
+              : task
+          )
+        }
+      }
+      
+      return updatedTasks
+    })
+
+    // Add edge for graph visualization
+    if (taskData.dependencyId && taskData.dependencyType) {
+      setEdges(prev => {
+        if (taskData.dependencyType === 'input') {
+          // New task -> existing task
+          return [...prev, { from: newTask.id, to: taskData.dependencyId }]
+        } else {
+          // Existing task -> new task
+          return [...prev, { from: taskData.dependencyId, to: newTask.id }]
+        }
+      })
+    }
   }, [])
 
   const updateTaskStatus = useCallback((taskId: string, status: Task['status']) => {
