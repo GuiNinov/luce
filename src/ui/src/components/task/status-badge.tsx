@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge"
-import { TaskStatus } from "@/types/task"
+import { TaskStatus, getStatusKey } from "@/types/task"
 
 interface StatusBadgeProps {
   status: TaskStatus
@@ -8,25 +8,45 @@ interface StatusBadgeProps {
 export function StatusBadge({ status }: StatusBadgeProps) {
   const getStatusText = (status: TaskStatus): string => {
     switch (status) {
-      case 'pending':
+      case 'Pending':
         return 'Pending'
-      case 'ready':
+      case 'Ready':
         return 'Ready'
-      case 'in-progress':
+      case 'InProgress':
         return 'In Progress'
-      case 'completed':
+      case 'Completed':
         return 'Completed'
-      case 'failed':
+      case 'Failed':
         return 'Failed'
-      case 'blocked':
+      case 'Blocked':
         return 'Blocked'
       default:
         return status
     }
   }
 
+  const getVariant = (status: TaskStatus) => {
+    const statusKey = getStatusKey(status)
+    switch (statusKey) {
+      case 'pending':
+        return 'pending'
+      case 'ready':
+        return 'ready'
+      case 'in-progress':
+        return 'in-progress'
+      case 'completed':
+        return 'completed'
+      case 'failed':
+        return 'failed'
+      case 'blocked':
+        return 'blocked'
+      default:
+        return 'pending'
+    }
+  }
+
   return (
-    <Badge variant={status}>
+    <Badge variant={getVariant(status) as any}>
       {getStatusText(status)}
     </Badge>
   )

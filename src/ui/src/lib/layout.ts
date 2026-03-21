@@ -24,8 +24,8 @@ export function calculateTaskLayout(tasks: Task[], edges: TaskEdge[]): LayoutRes
   const positions = new Map<string, TaskPosition>()
   
   // Separate completed tasks
-  const completedTasks = tasks.filter(task => task.status === 'completed')
-  const activeTasks = tasks.filter(task => task.status !== 'completed')
+  const completedTasks = tasks.filter(task => task.status === 'Completed')
+  const activeTasks = tasks.filter(task => task.status !== 'Completed')
   
   // Build dependency graph for active tasks
   const dependencyMap = new Map<string, string[]>() // taskId -> [dependentTaskIds]

@@ -42,7 +42,7 @@ export function TaskNode({ data }: TaskNodeProps) {
   }
 
   // Determine which zone the task is in
-  const isCompleted = task.status === 'completed'
+  const isCompleted = task.status === 'Completed'
   const isInActiveZone = (xPos || 0) >= 250 && (xPos || 0) <= 1050
   const isInCompletedZone = (xPos || 0) < 250
   
@@ -58,7 +58,7 @@ export function TaskNode({ data }: TaskNodeProps) {
     glow: 'ring-1 ring-blue-100',
     scale: 'hover:scale-105',
     handleColor: 'bg-blue-500 hover:bg-blue-600',
-    animation: task.status === 'ready' ? 'animate-pulse' : ''
+    animation: task.status === 'Ready' ? 'animate-pulse' : ''
   } : {
     shadow: 'shadow-md hover:shadow-lg',
     border: 'border-2', 
@@ -132,12 +132,12 @@ export function TaskNode({ data }: TaskNodeProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="blocked">Blocked</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Ready">Ready</SelectItem>
+                  <SelectItem value="InProgress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Failed">Failed</SelectItem>
+                  <SelectItem value="Blocked">Blocked</SelectItem>
                 </SelectContent>
               </Select>
             </div>

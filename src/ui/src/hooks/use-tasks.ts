@@ -1,100 +1,161 @@
-import { useState, useCallback } from 'react'
-import { Task, TaskPriority, TaskEdge } from '@/types/task'
+import { useState, useCallback, useEffect } from 'react'
+import { Task, TaskPriority, TaskEdge, TaskStatus, getApiStatus } from '@/types/task'
+import { apiService } from '@/services/api'
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [edges, setEdges] = useState<TaskEdge[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const addTask = useCallback((taskData: {
+  // Load tasks on mount
+  useEffect(() => {
+    loadTasks()
+  }, [])
+
+  const loadTasks = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await apiService.listTasks()
+      
+      // Convert API response to our format and build edges from dependencies
+      const apiTasks = response.tasks.map(task => ({
+        ...task,
+        priority: 'normal' as TaskPriority, // Default priority since API doesn't have it yet
+      }))
+      
+      setTasks(apiTasks)
+      
+      // Build edges from dependencies
+      const newEdges: TaskEdge[] = []
+      apiTasks.forEach(task => {
+        task.dependencies.forEach(depId => {
+          newEdges.push({ from: depId, to: task.id })
+        })
+      })
+      setEdges(newEdges)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tasks')
+      console.error('Failed to load tasks:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const addTask = useCallback(async (taskData: {
     title: string
     description?: string
     priority: TaskPriority
     dependencyId?: string
     dependencyType?: 'input' | 'output'
   }) => {
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      title: taskData.title,
-      description: taskData.description,
-      status: 'pending',
-      priority: taskData.priority,
-      dependencies: [],
-      created_at: new Date().toISOString(),
-    }
-
-    setTasks(prev => {
-      const updatedTasks = [...prev, newTask]
+    try {
+      setError(null)
       
-      // Handle dependency connections
+      // Determine dependencies based on connection type
+      let dependencies: string[] = []
       if (taskData.dependencyId && taskData.dependencyType) {
-        if (taskData.dependencyType === 'input') {
-          // New task feeds into the existing task
-          return updatedTasks.map(task => 
-            task.id === taskData.dependencyId
-              ? { ...task, dependencies: [...task.dependencies, newTask.id] }
-              : task
-          )
-        } else {
+        if (taskData.dependencyType === 'output') {
           // New task depends on the existing task
-          return updatedTasks.map(task => 
-            task.id === newTask.id
-              ? { ...task, dependencies: [taskData.dependencyId] }
-              : task
-          )
+          dependencies = [taskData.dependencyId]
+        }
+        // For 'input' type, we'll update the existing task's dependencies after creation
+      }
+
+      const response = await apiService.createTask({
+        title: taskData.title,
+        description: taskData.description,
+        dependencies,
+      })
+
+      const newTask: Task = {
+        ...response,
+        priority: taskData.priority,
+      }
+
+      // Handle 'input' type dependency (new task feeds into existing task)
+      if (taskData.dependencyId && taskData.dependencyType === 'input') {
+        // Update the existing task to depend on the new task
+        const existingTask = tasks.find(t => t.id === taskData.dependencyId)
+        if (existingTask) {
+          await apiService.updateTask(taskData.dependencyId, {
+            // Note: We'd need to update the API to handle dependency updates
+            // For now, we'll just reload all tasks
+          })
         }
       }
+
+      // Reload tasks to get updated state
+      await loadTasks()
       
-      return updatedTasks
-    })
-
-    // Add edge for graph visualization
-    if (taskData.dependencyId && taskData.dependencyType) {
-      setEdges(prev => {
-        if (taskData.dependencyType === 'input') {
-          // New task -> existing task
-          return [...prev, { from: newTask.id, to: taskData.dependencyId }]
-        } else {
-          // Existing task -> new task
-          return [...prev, { from: taskData.dependencyId, to: newTask.id }]
-        }
-      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create task')
+      console.error('Failed to create task:', err)
     }
-  }, [])
+  }, [tasks, loadTasks])
 
-  const updateTaskStatus = useCallback((taskId: string, status: Task['status']) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === taskId 
-          ? { 
-              ...task, 
-              status,
-              updated_at: new Date().toISOString(),
-              completed_at: status === 'completed' ? new Date().toISOString() : undefined
-            }
-          : task
+  const updateTaskStatus = useCallback(async (taskId: string, status: TaskStatus) => {
+    try {
+      setError(null)
+      await apiService.updateTask(taskId, { status })
+      
+      // Update local state optimistically
+      setTasks(prev => 
+        prev.map(task => 
+          task.id === taskId 
+            ? { 
+                ...task, 
+                status,
+                updated_at: new Date().toISOString(),
+              }
+            : task
+        )
       )
-    )
-  }, [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update task')
+      console.error('Failed to update task:', err)
+      // Reload tasks to revert optimistic update
+      loadTasks()
+    }
+  }, [loadTasks])
 
-  const addDependency = useCallback((fromTaskId: string, toTaskId: string) => {
-    // Add dependency to task
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === toTaskId
-          ? { ...task, dependencies: [...task.dependencies, fromTaskId] }
-          : task
+  const addDependency = useCallback(async (fromTaskId: string, toTaskId: string) => {
+    try {
+      setError(null)
+      const toTask = tasks.find(t => t.id === toTaskId)
+      if (!toTask) return
+
+      const newDependencies = [...toTask.dependencies, fromTaskId]
+      
+      // Note: API doesn't currently support dependency updates directly
+      // We'd need to enhance the API for this functionality
+      // For now, we'll just update local state
+      setTasks(prev => 
+        prev.map(task => 
+          task.id === toTaskId
+            ? { ...task, dependencies: newDependencies }
+            : task
+        )
       )
-    )
 
-    // Add edge
-    setEdges(prev => [...prev, { from: fromTaskId, to: toTaskId }])
-  }, [])
+      setEdges(prev => [...prev, { from: fromTaskId, to: toTaskId }])
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add dependency')
+      console.error('Failed to add dependency:', err)
+    }
+  }, [tasks])
 
   return {
     tasks,
     edges,
+    loading,
+    error,
     addTask,
     updateTaskStatus,
     addDependency,
+    refreshTasks: loadTasks,
   }
 }

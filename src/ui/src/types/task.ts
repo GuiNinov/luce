@@ -1,4 +1,4 @@
-export type TaskStatus = 'pending' | 'ready' | 'in-progress' | 'completed' | 'failed' | 'blocked'
+export type TaskStatus = 'Pending' | 'Ready' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked'
 
 export type TaskPriority = 'low' | 'normal' | 'high' | 'critical'
 
@@ -7,11 +7,10 @@ export interface Task {
   title: string
   description?: string
   status: TaskStatus
-  priority: TaskPriority
+  priority?: TaskPriority // Optional since API doesn't have priority yet
   dependencies: string[]
   created_at: string
-  updated_at?: string
-  completed_at?: string
+  updated_at: string
 }
 
 export interface TaskGraph {
@@ -25,3 +24,21 @@ export interface TaskEdge {
 }
 
 export type ViewMode = 'graph' | 'list'
+
+// Helper function to convert API status to lowercase for UI components that expect it
+export function getStatusKey(status: TaskStatus): string {
+  return status.toLowerCase().replace('inprogress', 'in-progress')
+}
+
+// Helper function to convert UI status back to API format
+export function getApiStatus(status: string): TaskStatus {
+  switch (status) {
+    case 'pending': return 'Pending'
+    case 'ready': return 'Ready'
+    case 'in-progress': return 'InProgress'
+    case 'completed': return 'Completed'
+    case 'failed': return 'Failed'
+    case 'blocked': return 'Blocked'
+    default: return 'Pending'
+  }
+}
