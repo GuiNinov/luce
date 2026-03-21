@@ -24,7 +24,7 @@ pub enum TaskPriority {
     Critical = 4,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
     pub id: TaskId,
     pub title: String,
