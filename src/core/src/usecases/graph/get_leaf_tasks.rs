@@ -1,5 +1,5 @@
-use luce_shared::{TaskId, LuceError};
 use crate::repositories::GraphRepository;
+use luce_shared::{LuceError, TaskId};
 
 pub struct GetLeafTasksUseCase<R: GraphRepository> {
     repository: R,
@@ -16,6 +16,10 @@ impl<R: GraphRepository> GetLeafTasksUseCase<R> {
 
     pub async fn execute(&self, input: GetLeafTasksInput<'_>) -> Result<Vec<TaskId>, LuceError> {
         let graph = self.repository.load_graph(input.graph_id).await?;
-        Ok(graph.get_leaf_tasks().into_iter().map(|task| task.id).collect())
+        Ok(graph
+            .get_leaf_tasks()
+            .into_iter()
+            .map(|task| task.id)
+            .collect())
     }
 }

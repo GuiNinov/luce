@@ -1,5 +1,5 @@
-use luce_shared::{TaskGraph, TaskId, LuceError};
 use crate::repositories::GraphRepository;
+use luce_shared::{LuceError, TaskGraph, TaskId};
 
 pub struct RemoveDependencyUseCase<R: GraphRepository> {
     repository: R,

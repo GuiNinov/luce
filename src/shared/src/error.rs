@@ -20,4 +20,7 @@ pub enum LuceError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("Invalid task ID: {0}")]
+    InvalidTaskId(String),
 }

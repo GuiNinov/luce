@@ -1,5 +1,5 @@
-use luce_shared::{TaskGraph, TaskId, LuceError};
 use crate::repositories::GraphRepository;
+use luce_shared::{LuceError, TaskGraph, TaskId};
 
 pub struct CompleteTaskUseCase<R: GraphRepository> {
     repository: R,
@@ -15,7 +15,10 @@ impl<R: GraphRepository> CompleteTaskUseCase<R> {
         Self { repository }
     }
 
-    pub async fn execute(&self, input: CompleteTaskInput<'_>) -> Result<(TaskGraph, Vec<TaskId>), LuceError> {
+    pub async fn execute(
+        &self,
+        input: CompleteTaskInput<'_>,
+    ) -> Result<(TaskGraph, Vec<TaskId>), LuceError> {
         let mut graph = self.repository.load_graph(input.graph_id).await?;
         let newly_ready = graph.complete_task(input.task_id)?;
         self.repository.save_graph(&graph, input.graph_id).await?;

@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod services;
+
 use commands::*;
+use services::LuceService;
 
 #[derive(Parser)]
 #[command(name = "luce-cli")]
@@ -294,9 +297,11 @@ pub enum SessionCommands {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    let service = LuceService::new().await?;
+
     match cli.command {
-        Commands::Task(task_cmd) => handle_task_command(task_cmd).await,
-        Commands::Graph(graph_cmd) => handle_graph_command(graph_cmd).await,
-        Commands::Session(session_cmd) => handle_session_command(session_cmd).await,
+        Commands::Task(task_cmd) => handle_task_command(task_cmd, &service).await,
+        Commands::Graph(graph_cmd) => handle_graph_command(graph_cmd, &service).await,
+        Commands::Session(session_cmd) => handle_session_command(session_cmd, &service).await,
     }
 }

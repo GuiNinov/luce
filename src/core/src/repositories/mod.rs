@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use luce_shared::{Task, TaskId, TaskGraph, LuceError};
+use luce_shared::{LuceError, Task, TaskGraph, TaskId};
 
 #[async_trait]
 pub trait TaskRepository {
@@ -18,8 +18,8 @@ pub trait GraphRepository {
     async fn graph_exists(&self, id: &str) -> Result<bool, LuceError>;
 }
 
-pub mod task_sqlite;
 pub mod graph_sqlite;
+pub mod task_sqlite;
 
-pub use task_sqlite::SqliteTaskRepository;
 pub use graph_sqlite::SqliteGraphRepository;
+pub use task_sqlite::SqliteTaskRepository;

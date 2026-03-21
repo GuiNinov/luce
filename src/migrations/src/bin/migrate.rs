@@ -5,7 +5,7 @@ use std::path::Path;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 3 {
         print_usage();
         std::process::exit(1);
@@ -30,18 +30,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "status" => {
             println!("Migration status:");
             let applied = applier.get_applied_migrations().await?;
-            let pending = applier.get_pending_migrations(Path::new(migrations_dir)).await?;
-            
+            let pending = applier
+                .get_pending_migrations(Path::new(migrations_dir))
+                .await?;
+
             println!("\nApplied migrations ({}):", applied.len());
             for migration in applied {
                 println!("  ✓ {} ({})", migration.name, migration.description);
             }
-            
+
             println!("\nPending migrations ({}):", pending.len());
             for migration in &pending {
                 println!("  ○ {} ({})", migration.name, migration.description);
             }
-            
+
             if pending.is_empty() {
                 println!("\nDatabase is up to date!");
             }
