@@ -1,5 +1,6 @@
 pub mod attachments;
 pub mod config;
+pub mod credentials;
 pub mod dependency;
 pub mod error;
 pub mod events;
@@ -11,6 +12,13 @@ pub use attachments::{
 };
 pub use config::{
     GitHubConfig, IntegrationsConfig, LinearConfig, LuceConfig, ServerConfig, SlackConfig,
+};
+pub use credentials::{
+    AttachmentId as CredentialAttachmentId, AttachmentStatus, AttachmentType, CredentialData,
+    CredentialId, CreateAttachmentInput, CreateCredentialInput, CreateIntegrationInput,
+    Integration, IntegrationCredential, IntegrationId, IntegrationType, SyncStatus,
+    TaskAttachment as CredentialTaskAttachment, UpdateAttachmentInput, UpdateCredentialInput,
+    UpdateIntegrationInput,
 };
 pub use dependency::TaskDependency;
 pub use error::LuceError;
