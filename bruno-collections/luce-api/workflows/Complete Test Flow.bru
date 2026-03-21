@@ -1,0 +1,41 @@
+meta {
+  name: Complete Test Flow
+  type: http
+  seq: 100
+}
+
+get {
+  url: {{apiUrl}}/health
+  body: none
+  auth: none
+}
+
+docs {
+  # Complete Test Flow
+  
+  This is a starting point for testing the complete API workflow.
+  Run these requests in sequence to test the full task lifecycle:
+  
+  ## Test Sequence
+  
+  1. **Health Check** - Verify server is running
+  2. **Create Task** - Create your first task
+  3. **Create Task with Dependencies** - Create a dependent task
+  4. **List Tasks** - See all tasks
+  5. **Get Task** - Get a specific task
+  6. **Update Task** - Change task status to InProgress
+  7. **List In Progress Tasks** - Verify it shows up
+  8. **Get Ready Tasks** - See which tasks can be started
+  9. **Mark Task Completed** - Complete a task
+  10. **List Completed Tasks** - Verify completion
+  11. **Delete Task** - Clean up (optional)
+  
+  ## Tips
+  - Copy task IDs from responses to use in subsequent requests
+  - Watch how task status changes affect ready task calculations
+  - Test error cases with invalid UUIDs and malformed requests
+  - Use the filter parameters to test pagination and filtering
+  
+  ## Environment
+  Make sure you're using the "local" environment which points to localhost:3000.
+}

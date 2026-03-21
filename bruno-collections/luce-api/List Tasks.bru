@@ -1,0 +1,35 @@
+meta {
+  name: List Tasks
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{apiUrl}}/tasks?status=Pending&limit=10&offset=0
+  body: none
+  auth: none
+}
+
+params:query {
+  status: Pending
+  limit: 10
+  offset: 0
+  ~status: 
+  ~limit: 
+  ~offset: 
+}
+
+docs {
+  # List Tasks
+  
+  Retrieve a list of tasks with optional filtering and pagination.
+  
+  ## Query Parameters
+  - `status` (string, optional): Filter by task status (Pending, InProgress, Completed)
+  - `limit` (number, optional): Maximum number of tasks to return
+  - `offset` (number, optional): Number of tasks to skip for pagination
+  
+  ## Response
+  - 200: List of tasks with total count
+  - 400: Invalid query parameters
+}

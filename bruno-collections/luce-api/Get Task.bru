@@ -1,0 +1,32 @@
+meta {
+  name: Get Task
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{apiUrl}}/tasks/{{taskId}}
+  body: none
+  auth: none
+}
+
+vars {
+  taskId: 550e8400-e29b-41d4-a716-446655440000
+}
+
+docs {
+  # Get Task
+  
+  Retrieve a specific task by its ID.
+  
+  ## Path Parameters
+  - `id` (UUID, required): The task ID
+  
+  ## Response
+  - 200: Task details
+  - 400: Invalid UUID format
+  - 404: Task not found
+  
+  ## Example
+  Replace `{{taskId}}` with an actual task UUID from a Create Task or List Tasks response.
+}

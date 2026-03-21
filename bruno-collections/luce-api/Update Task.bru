@@ -1,0 +1,45 @@
+meta {
+  name: Update Task
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{apiUrl}}/tasks/{{taskId}}
+  body: json
+  auth: none
+}
+
+vars {
+  taskId: 550e8400-e29b-41d4-a716-446655440000
+}
+
+body:json {
+  {
+    "title": "Updated task title",
+    "description": "Updated task description with more details",
+    "status": "InProgress"
+  }
+}
+
+docs {
+  # Update Task
+  
+  Update an existing task's properties.
+  
+  ## Path Parameters
+  - `id` (UUID, required): The task ID
+  
+  ## Request Body
+  - `title` (string, optional): New task title
+  - `description` (string, optional): New task description  
+  - `status` (string, optional): New task status (Pending, InProgress, Completed)
+  
+  ## Response
+  - 200: Updated task details
+  - 400: Invalid UUID format or request body
+  - 404: Task not found
+  
+  ## Example
+  Replace `{{taskId}}` with an actual task UUID.
+}

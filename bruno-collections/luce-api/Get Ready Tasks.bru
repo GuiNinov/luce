@@ -1,0 +1,24 @@
+meta {
+  name: Get Ready Tasks
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{apiUrl}}/tasks/ready
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Ready Tasks
+  
+  Retrieve all tasks that are ready for execution (no pending dependencies).
+  
+  ## Response
+  - 200: Array of ready tasks
+  
+  ## Use Case
+  This endpoint is useful for identifying which tasks can be started immediately,
+  making it ideal for parallel execution planning and task assignment.
+}

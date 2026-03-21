@@ -1,0 +1,63 @@
+meta {
+  name: Error Cases
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{apiUrl}}/tasks/invalid-uuid
+  body: none
+  auth: none
+}
+
+docs {
+  # Error Cases
+  
+  Test various error scenarios to verify error handling.
+  
+  ## This Request
+  Tests invalid UUID format - should return 400 Bad Request.
+  
+  ## Other Error Cases to Test Manually
+  
+  ### 1. Invalid UUID Format
+  ```
+  GET /api/v1/tasks/invalid-uuid
+  Expected: 400 Bad Request
+  ```
+  
+  ### 2. Task Not Found
+  ```
+  GET /api/v1/tasks/550e8400-0000-0000-0000-000000000000
+  Expected: 404 Not Found
+  ```
+  
+  ### 3. Invalid JSON Body
+  ```
+  POST /api/v1/tasks
+  Body: { "title": } // Invalid JSON
+  Expected: 400 Bad Request
+  ```
+  
+  ### 4. Missing Required Fields
+  ```
+  POST /api/v1/tasks
+  Body: { "description": "No title" }
+  Expected: 400 Bad Request
+  ```
+  
+  ### 5. Invalid Status Value
+  ```
+  PUT /api/v1/tasks/{id}
+  Body: { "status": "InvalidStatus" }
+  Expected: 400 Bad Request
+  ```
+  
+  ## Expected Error Response Format
+  ```json
+  {
+    "error": "Human readable error message",
+    "details": "Technical error details"
+  }
+  ```
+}
