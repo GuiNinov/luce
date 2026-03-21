@@ -23,4 +23,7 @@ pub enum LuceError {
 
     #[error("Invalid task ID: {0}")]
     InvalidTaskId(String),
+
+    #[error("Database error: {message}")]
+    DatabaseError { message: String },
 }

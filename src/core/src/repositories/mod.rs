@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use luce_shared::{LuceError, Task, TaskGraph, TaskId};
+use luce_shared::{LuceError, Task, TaskDependency, TaskId};
 use std::sync::Arc;
 
 #[async_trait]
@@ -11,18 +11,22 @@ pub trait TaskRepository {
 }
 
 #[async_trait]
-pub trait GraphRepository {
-    async fn save_graph(&self, graph: &TaskGraph, id: &str) -> Result<(), LuceError>;
-    async fn load_graph(&self, id: &str) -> Result<TaskGraph, LuceError>;
-    async fn delete_graph(&self, id: &str) -> Result<(), LuceError>;
-    async fn list_graphs(&self) -> Result<Vec<String>, LuceError>;
-    async fn graph_exists(&self, id: &str) -> Result<bool, LuceError>;
+pub trait DependencyRepository {
+    async fn save_dependency(&self, dependency: &TaskDependency) -> Result<(), LuceError>;
+    async fn remove_dependency(
+        &self,
+        task_id: TaskId,
+        depends_on_task_id: TaskId,
+    ) -> Result<(), LuceError>;
+    async fn get_dependencies(&self, task_id: TaskId) -> Result<Vec<TaskId>, LuceError>;
+    async fn get_dependents(&self, task_id: TaskId) -> Result<Vec<TaskId>, LuceError>;
+    async fn remove_all_dependencies(&self, task_id: TaskId) -> Result<(), LuceError>;
 }
 
-pub mod graph_sqlite;
+pub mod dependency_sqlite;
 pub mod task_sqlite;
 
-pub use graph_sqlite::SqliteGraphRepository;
+pub use dependency_sqlite::SqliteDependencyRepository;
 pub use task_sqlite::SqliteTaskRepository;
 
 // Implement TaskRepository for Arc<T> where T: TaskRepository
@@ -45,26 +49,32 @@ impl<T: TaskRepository + Send + Sync> TaskRepository for Arc<T> {
     }
 }
 
-// Implement GraphRepository for Arc<T> where T: GraphRepository
+// Implement DependencyRepository for Arc<T> where T: DependencyRepository
 #[async_trait]
-impl<T: GraphRepository + Send + Sync> GraphRepository for Arc<T> {
-    async fn save_graph(&self, graph: &TaskGraph, id: &str) -> Result<(), LuceError> {
-        self.as_ref().save_graph(graph, id).await
+impl<T: DependencyRepository + Send + Sync> DependencyRepository for Arc<T> {
+    async fn save_dependency(&self, dependency: &TaskDependency) -> Result<(), LuceError> {
+        self.as_ref().save_dependency(dependency).await
     }
 
-    async fn load_graph(&self, id: &str) -> Result<TaskGraph, LuceError> {
-        self.as_ref().load_graph(id).await
+    async fn remove_dependency(
+        &self,
+        task_id: TaskId,
+        depends_on_task_id: TaskId,
+    ) -> Result<(), LuceError> {
+        self.as_ref()
+            .remove_dependency(task_id, depends_on_task_id)
+            .await
     }
 
-    async fn delete_graph(&self, id: &str) -> Result<(), LuceError> {
-        self.as_ref().delete_graph(id).await
+    async fn get_dependencies(&self, task_id: TaskId) -> Result<Vec<TaskId>, LuceError> {
+        self.as_ref().get_dependencies(task_id).await
     }
 
-    async fn list_graphs(&self) -> Result<Vec<String>, LuceError> {
-        self.as_ref().list_graphs().await
+    async fn get_dependents(&self, task_id: TaskId) -> Result<Vec<TaskId>, LuceError> {
+        self.as_ref().get_dependents(task_id).await
     }
 
-    async fn graph_exists(&self, id: &str) -> Result<bool, LuceError> {
-        self.as_ref().graph_exists(id).await
+    async fn remove_all_dependencies(&self, task_id: TaskId) -> Result<(), LuceError> {
+        self.as_ref().remove_all_dependencies(task_id).await
     }
 }

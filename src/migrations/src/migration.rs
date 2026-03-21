@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::path::PathBuf;

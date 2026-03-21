@@ -51,7 +51,7 @@ impl<R: TaskRepository + Send + Sync> UseCase<AssignSessionInput, Task>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::sqlite::SqliteTaskRepository;
+    use crate::repositories::SqliteTaskRepository;
     use crate::usecases::task::create_task::{CreateTaskInput, CreateTaskUseCase};
     use tempfile::NamedTempFile;
 

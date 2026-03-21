@@ -4,46 +4,22 @@ use crate::protocol::{
 };
 use luce_core::{
     CreateTaskInput, CreateTaskUseCase, GetTaskInput, GetTaskUseCase, ListTasksInput,
-    ListTasksUseCase, SqliteGraphRepository, SqliteTaskRepository, TaskRepository,
-    UpdateTaskStatusInput, UpdateTaskStatusUseCase, UseCase,
+    ListTasksUseCase, SqliteTaskRepository, TaskRepository, UpdateTaskStatusInput,
+    UpdateTaskStatusUseCase, UseCase,
 };
-use luce_shared::{LuceError, Task, TaskGraph, TaskStatus};
+use luce_shared::{LuceError, Task, TaskStatus};
 use std::sync::Arc;
 
 pub struct TaskHandler {
     task_repository: Arc<SqliteTaskRepository>,
-    graph_repository: Arc<SqliteGraphRepository>,
-    current_graph_id: String,
 }
 
 impl TaskHandler {
     pub async fn new(db_path: &str) -> Result<Self, LuceError> {
         let db_url = format!("sqlite:{}", db_path);
         let task_repository = Arc::new(SqliteTaskRepository::new(&db_url).await?);
-        let graph_repository = Arc::new(SqliteGraphRepository::new(&db_url).await?);
-        let current_graph_id = "default".to_string();
 
-        // Create default graph if it doesn't exist
-        let graph_exists_usecase =
-            luce_core::GraphExistsUseCase::new(Arc::clone(&graph_repository));
-        let exists_input = luce_core::GraphExistsInput {
-            id: current_graph_id.clone(),
-        };
-
-        if !graph_exists_usecase.execute(exists_input).await? {
-            let create_graph_usecase =
-                luce_core::CreateGraphUseCase::new(Arc::clone(&graph_repository));
-            let create_input = luce_core::CreateGraphInput {
-                id: current_graph_id.clone(),
-            };
-            create_graph_usecase.execute(create_input).await?;
-        }
-
-        Ok(Self {
-            task_repository,
-            graph_repository,
-            current_graph_id,
-        })
+        Ok(Self { task_repository })
     }
 
     pub async fn handle_request(&self, request: McpRequest) -> McpResponse {
@@ -53,8 +29,6 @@ impl TaskHandler {
             McpRequest::GetTask { params } => self.handle_get_task(params).await,
             McpRequest::UpdateTask { params } => self.handle_update_task(params).await,
             McpRequest::DeleteTask { params } => self.handle_delete_task(params).await,
-            McpRequest::GetGraph => self.handle_get_graph().await,
-            McpRequest::GetReadyTasks => self.handle_get_ready_tasks().await,
         }
     }
 
@@ -205,37 +179,6 @@ impl TaskHandler {
         match self.task_repository.delete_task(params.id).await {
             Ok(_) => McpResponse::Success(Box::new(SuccessResponse {
                 result: ResponseResult::Empty,
-            })),
-            Err(e) => self.handle_error(e),
-        }
-    }
-
-    async fn handle_get_graph(&self) -> McpResponse {
-        let usecase = luce_core::LoadGraphUseCase::new(Arc::clone(&self.graph_repository));
-        let input = luce_core::LoadGraphInput {
-            id: self.current_graph_id.clone(),
-        };
-
-        match usecase.execute(input).await {
-            Ok(graph) => McpResponse::Success(Box::new(SuccessResponse {
-                result: ResponseResult::Graph(graph),
-            })),
-            Err(e) => self.handle_error(e),
-        }
-    }
-
-    async fn handle_get_ready_tasks(&self) -> McpResponse {
-        let usecase = luce_core::GetReadyTasksUseCase::new(
-            Arc::clone(&self.task_repository),
-            Arc::clone(&self.graph_repository),
-        );
-        let input = luce_core::GetReadyTasksInput {
-            graph_id: self.current_graph_id.clone(),
-        };
-
-        match usecase.execute(input).await {
-            Ok(ready_tasks) => McpResponse::Success(Box::new(SuccessResponse {
-                result: ResponseResult::Tasks(ready_tasks),
             })),
             Err(e) => self.handle_error(e),
         }

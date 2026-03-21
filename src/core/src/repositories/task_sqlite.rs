@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json;
 use sqlx::{Row, SqlitePool};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io;
 use uuid::Uuid;
 
@@ -22,17 +22,6 @@ impl SqliteTaskRepository {
         Ok(Self { pool })
     }
 
-    fn serialize_task_ids(ids: &HashSet<TaskId>) -> Result<String, LuceError> {
-        let ids_vec: Vec<TaskId> = ids.iter().cloned().collect();
-        serde_json::to_string(&ids_vec).map_err(LuceError::SerializationError)
-    }
-
-    fn deserialize_task_ids(json: &str) -> Result<HashSet<TaskId>, LuceError> {
-        let ids_vec: Vec<TaskId> =
-            serde_json::from_str(json).map_err(LuceError::SerializationError)?;
-        Ok(ids_vec.into_iter().collect())
-    }
-
     fn serialize_metadata(metadata: &HashMap<String, String>) -> Result<String, LuceError> {
         serde_json::to_string(metadata).map_err(LuceError::SerializationError)
     }
@@ -45,16 +34,14 @@ impl SqliteTaskRepository {
 #[async_trait]
 impl TaskRepository for SqliteTaskRepository {
     async fn save_task(&self, task: &Task) -> Result<(), LuceError> {
-        let dependencies_json = Self::serialize_task_ids(&task.dependencies)?;
-        let dependents_json = Self::serialize_task_ids(&task.dependents)?;
         let metadata_json = Self::serialize_metadata(&task.metadata)?;
 
         sqlx::query(
             r#"
             INSERT OR REPLACE INTO tasks (
-                id, title, description, status, priority, dependencies, dependents,
+                id, title, description, status, priority,
                 assigned_session, metadata, created_at, updated_at, started_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(task.id.to_string())
@@ -70,8 +57,6 @@ impl TaskRepository for SqliteTaskRepository {
                 .map_err(LuceError::SerializationError)?
                 .trim_matches('"'),
         )
-        .bind(dependencies_json)
-        .bind(dependents_json)
         .bind(&task.assigned_session)
         .bind(metadata_json)
         .bind(task.created_at.to_rfc3339())
@@ -119,8 +104,6 @@ impl TaskRepository for SqliteTaskRepository {
                 },
             )?;
 
-        let dependencies = Self::deserialize_task_ids(row.get("dependencies"))?;
-        let dependents = Self::deserialize_task_ids(row.get("dependents"))?;
         let metadata = Self::deserialize_metadata(row.get("metadata"))?;
 
         let created_at: DateTime<Utc> = DateTime::parse_from_rfc3339(row.get("created_at"))
@@ -172,8 +155,6 @@ impl TaskRepository for SqliteTaskRepository {
             description: row.get("description"),
             status,
             priority,
-            dependencies,
-            dependents,
             assigned_session: row.get("assigned_session"),
             metadata,
             created_at,
@@ -228,8 +209,6 @@ impl TaskRepository for SqliteTaskRepository {
                         ))
                     })?;
 
-            let dependencies = Self::deserialize_task_ids(row.get("dependencies"))?;
-            let dependents = Self::deserialize_task_ids(row.get("dependents"))?;
             let metadata = Self::deserialize_metadata(row.get("metadata"))?;
 
             let created_at: DateTime<Utc> = DateTime::parse_from_rfc3339(row.get("created_at"))
@@ -281,8 +260,6 @@ impl TaskRepository for SqliteTaskRepository {
                 description: row.get("description"),
                 status,
                 priority,
-                dependencies,
-                dependents,
                 assigned_session: row.get("assigned_session"),
                 metadata,
                 created_at,
@@ -342,8 +319,6 @@ mod tests {
                 description TEXT,
                 status TEXT NOT NULL,
                 priority TEXT NOT NULL,
-                dependencies TEXT NOT NULL,
-                dependents TEXT NOT NULL,
                 assigned_session TEXT,
                 metadata TEXT NOT NULL,
                 created_at TEXT NOT NULL,
