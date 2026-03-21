@@ -1,7 +1,7 @@
-pub mod task;
-pub mod graph;
 pub mod error;
+pub mod graph;
+pub mod task;
 
-pub use task::{Task, TaskId, TaskStatus, TaskPriority};
-pub use graph::TaskGraph;
 pub use error::LuceError;
+pub use graph::TaskGraph;
+pub use task::{Task, TaskId, TaskPriority, TaskStatus};

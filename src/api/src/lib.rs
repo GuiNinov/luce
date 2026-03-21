@@ -1,0 +1,6 @@
+pub mod handlers;
+pub mod server;
+
+use luce_shared::error::LuceError;
+
+pub type ApiResult<T> = Result<T, LuceError>;
