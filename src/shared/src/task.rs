@@ -15,6 +15,19 @@ pub enum TaskStatus {
     Blocked,
 }
 
+impl std::fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskStatus::Pending => write!(f, "Pending"),
+            TaskStatus::Ready => write!(f, "Ready"),
+            TaskStatus::InProgress => write!(f, "InProgress"),
+            TaskStatus::Completed => write!(f, "Completed"),
+            TaskStatus::Failed => write!(f, "Failed"),
+            TaskStatus::Blocked => write!(f, "Blocked"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum TaskPriority {
     Low = 1,
@@ -22,6 +35,17 @@ pub enum TaskPriority {
     Normal = 2,
     High = 3,
     Critical = 4,
+}
+
+impl std::fmt::Display for TaskPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskPriority::Low => write!(f, "Low"),
+            TaskPriority::Normal => write!(f, "Normal"),
+            TaskPriority::High => write!(f, "High"),
+            TaskPriority::Critical => write!(f, "Critical"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

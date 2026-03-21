@@ -24,6 +24,28 @@ pub enum McpRequest {
 
     #[serde(rename = "graph/ready")]
     GetReadyTasks,
+
+    // GitHub integration tools
+    #[serde(rename = "github/attach-issue")]
+    AttachGitHubIssue { params: AttachGitHubIssueParams },
+
+    #[serde(rename = "github/attach-pr")]
+    AttachGitHubPR { params: AttachGitHubPRParams },
+
+    #[serde(rename = "github/create-issue")]
+    CreateGitHubIssue { params: CreateGitHubIssueParams },
+
+    #[serde(rename = "github/create-pr")]
+    CreateGitHubPR { params: CreateGitHubPRParams },
+
+    #[serde(rename = "github/sync")]
+    SyncGitHub { params: SyncGitHubParams },
+
+    #[serde(rename = "attachments/list")]
+    ListAttachments { params: ListAttachmentsParams },
+
+    #[serde(rename = "attachments/remove")]
+    RemoveAttachment { params: RemoveAttachmentParams },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,6 +75,60 @@ pub struct DeleteTaskParams {
     pub id: TaskId,
 }
 
+// GitHub integration parameters
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AttachGitHubIssueParams {
+    pub task_id: TaskId,
+    pub issue_number: u32,
+    pub repository: Option<String>, // Optional override for default repo
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AttachGitHubPRParams {
+    pub task_id: TaskId,
+    pub pr_number: u64,
+    pub repository: Option<String>, // Optional override for default repo
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateGitHubIssueParams {
+    pub task_id: TaskId,
+    pub title: Option<String>, // If not provided, use task title
+    pub body: Option<String>,  // If not provided, use task description
+    pub labels: Option<Vec<String>>,
+    pub assignees: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateGitHubPRParams {
+    pub task_id: TaskId,
+    pub title: Option<String>,       // If not provided, use task title
+    pub body: Option<String>,        // If not provided, use task description
+    pub head_branch: String,         // Required
+    pub base_branch: Option<String>, // Defaults to "main"
+    pub draft: Option<bool>,         // Defaults to false
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncGitHubParams {
+    pub repository: Option<String>,   // Optional override for default repo
+    pub include_issues: Option<bool>, // Defaults to true
+    pub include_prs: Option<bool>,    // Defaults to true
+    pub create_tasks: Option<bool>,   // Defaults to true
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListAttachmentsParams {
+    pub task_id: TaskId,
+    pub attachment_type: Option<String>, // Filter by type: "github", "slack", "linear"
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RemoveAttachmentParams {
+    pub task_id: TaskId,
+    pub attachment_id: String, // UUID of the attachment
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum McpResponse {
@@ -76,6 +152,7 @@ pub enum ResponseResult {
     Task(Box<Task>),
     Tasks(Vec<Task>),
     Graph(TaskGraph),
+    Value(serde_json::Value), // For arbitrary JSON responses
     Empty,
 }
 

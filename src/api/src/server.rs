@@ -14,7 +14,12 @@ use tower_http::{
 };
 use tracing::Level;
 
-use crate::{handlers::tasks::task_routes, services::TaskService};
+use crate::{
+    handlers::{
+        attachments::attachment_routes, integrations::integration_routes, tasks::task_routes,
+    },
+    services::TaskService,
+};
 
 pub struct ApiServer {
     addr: SocketAddr,
@@ -39,6 +44,8 @@ impl ApiServer {
 
         Router::new()
             .nest("/api/v1", task_routes())
+            .nest("/api/v1", attachment_routes())
+            .nest("/api/v1", integration_routes())
             .layer(Extension(task_service))
             .layer(ServiceBuilder::new().layer(trace).layer(cors))
     }
