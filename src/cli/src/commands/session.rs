@@ -1,20 +1,24 @@
+use crate::services::LuceService;
 use crate::SessionCommands;
 
-pub async fn handle_session_command(cmd: SessionCommands) -> anyhow::Result<()> {
+pub async fn handle_session_command(
+    cmd: SessionCommands,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     match cmd {
-        SessionCommands::List => list_sessions().await,
+        SessionCommands::List => list_sessions(service).await,
         SessionCommands::Create {
             session_id,
             description,
-        } => create_session(session_id, description).await,
-        SessionCommands::Show { session_id } => show_session(session_id).await,
-        SessionCommands::Set { session_id } => set_current_session(session_id).await,
-        SessionCommands::Current => show_current_session().await,
-        SessionCommands::End { session_id, force } => end_session(session_id, force).await,
+        } => create_session(session_id, description, service).await,
+        SessionCommands::Show { session_id } => show_session(session_id, service).await,
+        SessionCommands::Set { session_id } => set_current_session(session_id, service).await,
+        SessionCommands::Current => show_current_session(service).await,
+        SessionCommands::End { session_id, force } => end_session(session_id, force, service).await,
     }
 }
 
-async fn list_sessions() -> anyhow::Result<()> {
+async fn list_sessions(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Active Sessions");
     println!("===============");
@@ -33,7 +37,11 @@ async fn list_sessions() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn create_session(session_id: String, description: Option<String>) -> anyhow::Result<()> {
+async fn create_session(
+    session_id: String,
+    description: Option<String>,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Creating session: {}", session_id);
 
@@ -60,7 +68,7 @@ async fn create_session(session_id: String, description: Option<String>) -> anyh
     Ok(())
 }
 
-async fn show_session(session_id: String) -> anyhow::Result<()> {
+async fn show_session(session_id: String, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Session Details: {}", session_id);
     println!("================");
@@ -86,7 +94,7 @@ async fn show_session(session_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn set_current_session(session_id: String) -> anyhow::Result<()> {
+async fn set_current_session(session_id: String, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Setting current session to: {}", session_id);
     println!();
@@ -104,7 +112,7 @@ async fn set_current_session(session_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_current_session() -> anyhow::Result<()> {
+async fn show_current_session(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Current Session");
     println!("===============");
@@ -124,7 +132,7 @@ async fn show_current_session() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn end_session(session_id: String, force: bool) -> anyhow::Result<()> {
+async fn end_session(session_id: String, force: bool, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Ending session: {}", session_id);
 

@@ -1,35 +1,36 @@
+use crate::services::LuceService;
 use crate::GraphCommands;
 use std::str::FromStr;
 use uuid::Uuid;
 
-pub async fn handle_graph_command(cmd: GraphCommands) -> anyhow::Result<()> {
+pub async fn handle_graph_command(cmd: GraphCommands, service: &LuceService) -> anyhow::Result<()> {
     match cmd {
-        GraphCommands::Status => show_graph_status().await,
+        GraphCommands::Status => show_graph_status(service).await,
         GraphCommands::Show {
             status,
             session,
             format,
-        } => show_graph(status, session, format).await,
+        } => show_graph(status, session, format, service).await,
         GraphCommands::Dependencies { task_id, recursive } => {
-            show_dependencies(task_id, recursive).await
+            show_dependencies(task_id, recursive, service).await
         }
         GraphCommands::Dependents { task_id, recursive } => {
-            show_dependents(task_id, recursive).await
+            show_dependents(task_id, recursive, service).await
         }
-        GraphCommands::FindCycles => find_cycles().await,
-        GraphCommands::TopologicalSort => topological_sort().await,
-        GraphCommands::CriticalPath => show_critical_path().await,
-        GraphCommands::Clear { confirm } => clear_graph(confirm).await,
-        GraphCommands::Export { output, format } => export_graph(output, format).await,
+        GraphCommands::FindCycles => find_cycles(service).await,
+        GraphCommands::TopologicalSort => topological_sort(service).await,
+        GraphCommands::CriticalPath => show_critical_path(service).await,
+        GraphCommands::Clear { confirm } => clear_graph(confirm, service).await,
+        GraphCommands::Export { output, format } => export_graph(output, format, service).await,
         GraphCommands::Import {
             input,
             format,
             merge,
-        } => import_graph(input, format, merge).await,
+        } => import_graph(input, format, merge, service).await,
     }
 }
 
-async fn show_graph_status() -> anyhow::Result<()> {
+async fn show_graph_status(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Graph Status Overview");
     println!("====================");
@@ -56,6 +57,7 @@ async fn show_graph(
     status: Option<String>,
     session: Option<String>,
     format: String,
+    service: &LuceService,
 ) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Showing graph visualization");
@@ -110,7 +112,11 @@ async fn show_graph(
     Ok(())
 }
 
-async fn show_dependencies(task_id: String, recursive: bool) -> anyhow::Result<()> {
+async fn show_dependencies(
+    task_id: String,
+    recursive: bool,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Showing dependencies for task: {}", task_id);
 
@@ -140,7 +146,11 @@ async fn show_dependencies(task_id: String, recursive: bool) -> anyhow::Result<(
     Ok(())
 }
 
-async fn show_dependents(task_id: String, recursive: bool) -> anyhow::Result<()> {
+async fn show_dependents(
+    task_id: String,
+    recursive: bool,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Showing dependents for task: {}", task_id);
 
@@ -170,7 +180,7 @@ async fn show_dependents(task_id: String, recursive: bool) -> anyhow::Result<()>
     Ok(())
 }
 
-async fn find_cycles() -> anyhow::Result<()> {
+async fn find_cycles(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Finding cycles in dependency graph");
     println!();
@@ -182,7 +192,7 @@ async fn find_cycles() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn topological_sort() -> anyhow::Result<()> {
+async fn topological_sort(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Topological sort of tasks");
     println!();
@@ -194,7 +204,7 @@ async fn topological_sort() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_critical_path() -> anyhow::Result<()> {
+async fn show_critical_path(service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Critical Path Analysis");
     println!("======================");
@@ -209,7 +219,7 @@ async fn show_critical_path() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn clear_graph(confirm: bool) -> anyhow::Result<()> {
+async fn clear_graph(confirm: bool, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     if !confirm {
         eprintln!("Graph clearing requires --confirm flag for safety");
@@ -228,7 +238,7 @@ async fn clear_graph(confirm: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn export_graph(output: String, format: String) -> anyhow::Result<()> {
+async fn export_graph(output: String, format: String, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Exporting graph to: {}", output);
 
@@ -261,7 +271,12 @@ async fn export_graph(output: String, format: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn import_graph(input: String, format: String, merge: bool) -> anyhow::Result<()> {
+async fn import_graph(
+    input: String,
+    format: String,
+    merge: bool,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Importing graph from: {}", input);
 

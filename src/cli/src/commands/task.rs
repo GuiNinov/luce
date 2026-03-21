@@ -1,9 +1,9 @@
+use crate::services::LuceService;
 use crate::TaskCommands;
-use luce_shared::{Task, TaskPriority};
-use std::str::FromStr;
-use uuid::Uuid;
+use luce_shared::{TaskPriority, TaskStatus};
+use luce_core::TaskFilter;
 
-pub async fn handle_task_command(cmd: TaskCommands) -> anyhow::Result<()> {
+pub async fn handle_task_command(cmd: TaskCommands, service: &LuceService) -> anyhow::Result<()> {
     match cmd {
         TaskCommands::Create {
             title,
@@ -11,7 +11,17 @@ pub async fn handle_task_command(cmd: TaskCommands) -> anyhow::Result<()> {
             priority,
             dependencies,
             metadata,
-        } => create_task(title, description, priority, dependencies, metadata).await,
+        } => {
+            create_task(
+                title,
+                description,
+                priority,
+                dependencies,
+                metadata,
+                service,
+            )
+            .await
+        }
         TaskCommands::List {
             status,
             session,
@@ -19,41 +29,48 @@ pub async fn handle_task_command(cmd: TaskCommands) -> anyhow::Result<()> {
             available,
             blocked,
             limit,
-        } => list_tasks(status, session, priority, available, blocked, limit).await,
-        TaskCommands::Show { task_id } => show_task(task_id).await,
+        } => {
+            list_tasks(
+                status, session, priority, available, blocked, limit, service,
+            )
+            .await
+        }
+        TaskCommands::Show { task_id } => show_task(task_id, service).await,
         TaskCommands::Update {
             task_id,
             title,
             description,
             priority,
             status,
-        } => update_task(task_id, title, description, priority, status).await,
-        TaskCommands::Start { task_id, session } => start_task(task_id, session).await,
-        TaskCommands::Complete { task_id } => complete_task(task_id).await,
+        } => update_task(task_id, title, description, priority, status, service).await,
+        TaskCommands::Start { task_id, session } => start_task(task_id, session, service).await,
+        TaskCommands::Complete { task_id } => complete_task(task_id, service).await,
         TaskCommands::Fail {
             task_id,
             block_dependents,
-        } => fail_task(task_id, block_dependents).await,
+        } => fail_task(task_id, block_dependents, service).await,
         TaskCommands::AddDependency {
             task_id,
             dependency_id,
-        } => add_dependency(task_id, dependency_id).await,
+        } => add_dependency(task_id, dependency_id, service).await,
         TaskCommands::RemoveDependency {
             task_id,
             dependency_id,
-        } => remove_dependency(task_id, dependency_id).await,
+        } => remove_dependency(task_id, dependency_id, service).await,
         TaskCommands::Assign {
             task_id,
             session_id,
-        } => assign_task(task_id, session_id).await,
-        TaskCommands::Unassign { task_id } => unassign_task(task_id).await,
-        TaskCommands::Delete { task_id, force } => delete_task(task_id, force).await,
+        } => assign_task(task_id, session_id, service).await,
+        TaskCommands::Unassign { task_id } => unassign_task(task_id, service).await,
+        TaskCommands::Delete { task_id, force } => delete_task(task_id, force, service).await,
         TaskCommands::AddMetadata {
             task_id,
             key,
             value,
-        } => add_metadata(task_id, key, value).await,
-        TaskCommands::RemoveMetadata { task_id, key } => remove_metadata(task_id, key).await,
+        } => add_metadata(task_id, key, value, service).await,
+        TaskCommands::RemoveMetadata { task_id, key } => {
+            remove_metadata(task_id, key, service).await
+        }
     }
 }
 
@@ -63,10 +80,8 @@ async fn create_task(
     priority: String,
     dependencies: Option<String>,
     metadata: Vec<String>,
+    service: &LuceService,
 ) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Creating task: {}", title);
-
     // Parse priority
     let task_priority = match priority.to_lowercase().as_str() {
         "low" => TaskPriority::Low,
@@ -82,14 +97,12 @@ async fn create_task(
         }
     };
 
-    // Create task
-    let mut task = Task::new(title).with_priority(task_priority);
+    // Create task via service
+    let mut task = service
+        .create_task(title.clone(), description.clone(), Some(task_priority))
+        .await?;
 
-    if let Some(desc) = description {
-        task = task.with_description(desc);
-    }
-
-    // Parse metadata
+    // Parse metadata and apply it if provided
     for meta in metadata {
         if let Some((key, value)) = meta.split_once('=') {
             task = task.with_metadata(key.to_string(), value.to_string());
@@ -98,7 +111,8 @@ async fn create_task(
         }
     }
 
-    println!("Task created with ID: {}", task.id);
+    println!("Task created successfully!");
+    println!("ID: {}", task.id);
     println!("Title: {}", task.title);
     if let Some(desc) = &task.description {
         println!("Description: {}", desc);
@@ -129,49 +143,108 @@ async fn list_tasks(
     available: bool,
     blocked: bool,
     limit: Option<usize>,
+    service: &LuceService,
 ) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Listing tasks with filters:");
+    // Build filter - the current TaskFilter is simpler than expected, so we'll filter on the service side for now
+    let filter = if let Some(status_str) = status {
+        match status_str.to_lowercase().as_str() {
+            "pending" => Some(TaskFilter::ByStatus(TaskStatus::Pending)),
+            "ready" => Some(TaskFilter::ByStatus(TaskStatus::Ready)),
+            "in-progress" | "inprogress" => Some(TaskFilter::ByStatus(TaskStatus::InProgress)),
+            "completed" => Some(TaskFilter::ByStatus(TaskStatus::Completed)),
+            "failed" => Some(TaskFilter::ByStatus(TaskStatus::Failed)),
+            "blocked" => Some(TaskFilter::ByStatus(TaskStatus::Blocked)),
+            _ => {
+                eprintln!("Invalid status '{}'. Must be one of: pending, ready, in-progress, completed, failed, blocked", status_str);
+                return Ok(());
+            }
+        }
+    } else if let Some(session_id) = session {
+        Some(TaskFilter::BySession(session_id))
+    } else if available {
+        Some(TaskFilter::Unassigned)
+    } else {
+        Some(TaskFilter::All)
+    };
 
-    if let Some(s) = status {
-        println!("  Status: {}", s);
-    }
-    if let Some(s) = session {
-        println!("  Session: {}", s);
-    }
-    if let Some(p) = priority {
-        println!("  Priority: {}", p);
-    }
-    if available {
-        println!("  Show only available tasks");
+    // Note: Priority filtering, blocking status, and limit are not currently supported by the core TaskFilter.
+    // These features will need to be implemented in the future.
+    if priority.is_some() {
+        eprintln!("Warning: Priority filtering not yet implemented in core");
     }
     if blocked {
-        println!("  Show only blocked tasks");
+        eprintln!("Warning: Blocked status filtering not yet implemented in core");
     }
-    if let Some(l) = limit {
-        println!("  Limit: {}", l);
+    if limit.is_some() {
+        eprintln!("Warning: Result limiting not yet implemented in core");
     }
 
-    // Placeholder output
-    println!(
-        "\nNo tasks found. Graph management will be implemented when core package is connected."
-    );
+    // Fetch tasks
+    match service.list_tasks(filter).await {
+        Ok(tasks) => {
+            if tasks.is_empty() {
+                println!("No tasks found matching the specified criteria.");
+            } else {
+                println!("Found {} task(s):\n", tasks.len());
+
+                for task in tasks {
+                    println!("ID: {}", task.id);
+                    println!("Title: {}", task.title);
+                    println!("Status: {:?}", task.status);
+                    println!("Priority: {:?}", task.priority);
+
+                    if let Some(session) = &task.assigned_session {
+                        println!("Session: {}", session);
+                    }
+
+                    if let Some(desc) = &task.description {
+                        println!("Description: {}", desc);
+                    }
+
+                    println!("Created: {}", task.created_at);
+                    println!("Updated: {}", task.updated_at);
+                    println!("{}", "-".repeat(40));
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error listing tasks: {}", e);
+        }
+    }
 
     Ok(())
 }
 
-async fn show_task(task_id: String) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Showing task details for ID: {}", task_id);
+async fn show_task(task_id: String, service: &LuceService) -> anyhow::Result<()> {
+    match service.get_task(&task_id).await {
+        Ok(task) => {
+            println!("Task Details:");
+            println!("ID: {}", task.id);
+            println!("Title: {}", task.title);
 
-    // Validate UUID format
-    match Uuid::from_str(&task_id) {
-        Ok(uuid) => {
-            println!("Valid task ID: {}", uuid);
-            println!("Note: Task lookup will be implemented when core package is connected");
+            if let Some(desc) = &task.description {
+                println!("Description: {}", desc);
+            }
+
+            println!("Priority: {:?}", task.priority);
+            println!("Status: {:?}", task.status);
+
+            if let Some(session) = &task.assigned_session {
+                println!("Assigned Session: {}", session);
+            }
+
+            if !task.metadata.is_empty() {
+                println!("Metadata:");
+                for (key, value) in &task.metadata {
+                    println!("  {}: {}", key, value);
+                }
+            }
+
+            println!("Created: {}", task.created_at);
+            println!("Updated: {}", task.updated_at);
         }
-        Err(_) => {
-            eprintln!("Invalid task ID format. Expected UUID format.");
+        Err(e) => {
+            eprintln!("Error retrieving task: {}", e);
         }
     }
 
@@ -184,6 +257,7 @@ async fn update_task(
     description: Option<String>,
     priority: Option<String>,
     status: Option<String>,
+    service: &LuceService,
 ) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Updating task: {}", task_id);
@@ -206,45 +280,87 @@ async fn update_task(
     Ok(())
 }
 
-async fn start_task(task_id: String, session: Option<String>) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Starting task: {}", task_id);
+async fn start_task(
+    task_id: String,
+    session: Option<String>,
+    service: &LuceService,
+) -> anyhow::Result<()> {
+    // Update task status to in-progress
+    match service
+        .update_task_status(&task_id, TaskStatus::InProgress)
+        .await
+    {
+        Ok(_) => {
+            println!("Task {} started (status updated to in-progress)!", task_id);
 
-    if let Some(s) = session {
-        println!("  Assigning to session: {}", s);
-    } else {
-        println!("  Using current session (to be determined)");
+            // Assign to session if provided
+            if let Some(session_id) = session {
+                match service
+                    .assign_task_to_session(&task_id, session_id.clone())
+                    .await
+                {
+                    Ok(_) => {
+                        println!("Task assigned to session: {}", session_id);
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Task started but session assignment failed: {}", e);
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error starting task: {}", e);
+        }
     }
 
-    println!("Note: Task starting will be implemented when core package is connected");
-
     Ok(())
 }
 
-async fn complete_task(task_id: String) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Completing task: {}", task_id);
-    println!("Note: Task completion will be implemented when core package is connected");
-
-    Ok(())
-}
-
-async fn fail_task(task_id: String, block_dependents: bool) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Marking task as failed: {}", task_id);
-
-    if block_dependents {
-        println!("  Will block dependent tasks");
-    } else {
-        println!("  Will not block dependent tasks");
+async fn complete_task(task_id: String, service: &LuceService) -> anyhow::Result<()> {
+    match service
+        .update_task_status(&task_id, TaskStatus::Completed)
+        .await
+    {
+        Ok(_) => {
+            println!("Task {} marked as completed successfully!", task_id);
+        }
+        Err(e) => {
+            eprintln!("Error completing task: {}", e);
+        }
     }
 
-    println!("Note: Task failure handling will be implemented when core package is connected");
+    Ok(())
+}
+
+async fn fail_task(
+    task_id: String,
+    block_dependents: bool,
+    service: &LuceService,
+) -> anyhow::Result<()> {
+    match service
+        .update_task_status(&task_id, TaskStatus::Failed)
+        .await
+    {
+        Ok(_) => {
+            println!("Task {} marked as failed!", task_id);
+
+            if block_dependents {
+                println!("Note: Dependent task blocking will be implemented when graph management is connected");
+            }
+        }
+        Err(e) => {
+            eprintln!("Error marking task as failed: {}", e);
+        }
+    }
 
     Ok(())
 }
 
-async fn add_dependency(task_id: String, dependency_id: String) -> anyhow::Result<()> {
+async fn add_dependency(
+    task_id: String,
+    dependency_id: String,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!(
         "Adding dependency: {} depends on {}",
@@ -255,7 +371,11 @@ async fn add_dependency(task_id: String, dependency_id: String) -> anyhow::Resul
     Ok(())
 }
 
-async fn remove_dependency(task_id: String, dependency_id: String) -> anyhow::Result<()> {
+async fn remove_dependency(
+    task_id: String,
+    dependency_id: String,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!(
         "Removing dependency: {} no longer depends on {}",
@@ -266,23 +386,43 @@ async fn remove_dependency(task_id: String, dependency_id: String) -> anyhow::Re
     Ok(())
 }
 
-async fn assign_task(task_id: String, session_id: String) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Assigning task {} to session {}", task_id, session_id);
-    println!("Note: Task assignment will be implemented when core package is connected");
+async fn assign_task(
+    task_id: String,
+    session_id: String,
+    service: &LuceService,
+) -> anyhow::Result<()> {
+    match service
+        .assign_task_to_session(&task_id, session_id.clone())
+        .await
+    {
+        Ok(_) => {
+            println!(
+                "Task {} assigned to session {} successfully!",
+                task_id, session_id
+            );
+        }
+        Err(e) => {
+            eprintln!("Error assigning task: {}", e);
+        }
+    }
 
     Ok(())
 }
 
-async fn unassign_task(task_id: String) -> anyhow::Result<()> {
-    // TODO: Connect to core package for actual implementation
-    println!("Unassigning task: {}", task_id);
-    println!("Note: Task unassignment will be implemented when core package is connected");
+async fn unassign_task(task_id: String, service: &LuceService) -> anyhow::Result<()> {
+    match service.unassign_task(&task_id).await {
+        Ok(_) => {
+            println!("Task {} unassigned successfully!", task_id);
+        }
+        Err(e) => {
+            eprintln!("Error unassigning task: {}", e);
+        }
+    }
 
     Ok(())
 }
 
-async fn delete_task(task_id: String, force: bool) -> anyhow::Result<()> {
+async fn delete_task(task_id: String, force: bool, service: &LuceService) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Deleting task: {}", task_id);
 
@@ -295,7 +435,12 @@ async fn delete_task(task_id: String, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn add_metadata(task_id: String, key: String, value: String) -> anyhow::Result<()> {
+async fn add_metadata(
+    task_id: String,
+    key: String,
+    value: String,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Adding metadata to task {}: {}={}", task_id, key, value);
     println!("Note: Metadata management will be implemented when core package is connected");
@@ -303,7 +448,11 @@ async fn add_metadata(task_id: String, key: String, value: String) -> anyhow::Re
     Ok(())
 }
 
-async fn remove_metadata(task_id: String, key: String) -> anyhow::Result<()> {
+async fn remove_metadata(
+    task_id: String,
+    key: String,
+    service: &LuceService,
+) -> anyhow::Result<()> {
     // TODO: Connect to core package for actual implementation
     println!("Removing metadata from task {}: {}", task_id, key);
     println!("Note: Metadata management will be implemented when core package is connected");

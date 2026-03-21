@@ -296,6 +296,25 @@ impl TaskRepository for SqliteTaskRepository {
     }
 }
 
+#[async_trait]
+impl TaskRepository for &SqliteTaskRepository {
+    async fn save_task(&self, task: &Task) -> Result<(), LuceError> {
+        (*self).save_task(task).await
+    }
+
+    async fn get_task(&self, id: TaskId) -> Result<Task, LuceError> {
+        (*self).get_task(id).await
+    }
+
+    async fn delete_task(&self, id: TaskId) -> Result<(), LuceError> {
+        (*self).delete_task(id).await
+    }
+
+    async fn list_tasks(&self) -> Result<Vec<Task>, LuceError> {
+        (*self).list_tasks().await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
