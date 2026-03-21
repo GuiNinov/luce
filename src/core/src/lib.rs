@@ -4,7 +4,13 @@ pub mod usecases;
 pub use repositories::{
     GraphRepository, SqliteGraphRepository, SqliteTaskRepository, TaskRepository,
 };
-pub use usecases::graph::{GraphStatistics, ParallelExecutionPlan, ParallelOpportunities};
+pub use usecases::graph::{
+    AddDependencyInput, AddDependencyUseCase, AddTaskToGraphInput, AddTaskToGraphUseCase,
+    CreateGraphInput, CreateGraphUseCase, GetReadyTasksInput, GetReadyTasksUseCase,
+    GraphExistsInput, GraphExistsUseCase, GraphStatistics, LoadGraphInput, LoadGraphUseCase,
+    ParallelExecutionPlan, ParallelOpportunities, RemoveTaskFromGraphInput,
+    RemoveTaskFromGraphUseCase,
+};
 pub use usecases::task::*;
 pub use usecases::UseCase;
 

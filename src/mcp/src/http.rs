@@ -27,6 +27,7 @@ const PROTOCOL_VERSION_HEADER: &str = "MCP-Protocol-Version";
 pub struct HttpServer {
     sessions: Arc<RwLock<HashMap<String, Session>>>,
     cors_origins: Vec<String>,
+    db_path: String,
 }
 
 #[derive(Clone)]
@@ -52,10 +53,11 @@ struct SseQuery {
 }
 
 impl HttpServer {
-    pub fn new() -> Self {
+    pub fn new(db_path: &str) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             cors_origins: vec!["http://localhost:3000".to_string()],
+            db_path: db_path.to_string(),
         }
     }
 
@@ -106,8 +108,11 @@ impl HttpServer {
             None => {
                 let session_id = Uuid::new_v4().to_string();
                 let (sender, _) = broadcast::channel(100);
+                let handler = TaskHandler::new(&self.db_path)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 let session = Session {
-                    handler: Arc::new(Mutex::new(TaskHandler::new())),
+                    handler: Arc::new(Mutex::new(handler)),
                     event_sender: sender,
                     last_event_id: Arc::new(Mutex::new(0)),
                 };
@@ -148,8 +153,8 @@ impl HttpServer {
 
         // Handle the request
         let response = {
-            let mut handler = session.handler.lock().await;
-            handler.handle_request(request)
+            let handler = session.handler.lock().await;
+            handler.handle_request(request).await
         };
 
         if wants_sse {
@@ -318,12 +323,6 @@ impl HttpServer {
     }
 }
 
-impl Default for HttpServer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,18 +331,25 @@ mod tests {
         http::{Request, StatusCode},
     };
     use serde_json::json;
+    use tempfile::NamedTempFile;
     use tower::ServiceExt;
+
+    fn create_test_server() -> HttpServer {
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_str().unwrap();
+        HttpServer::new(db_path)
+    }
 
     #[tokio::test]
     async fn test_http_server_creation() {
-        let server = HttpServer::new();
+        let server = create_test_server();
         let _router = server.router();
         // Just verify it can be created without panicking
     }
 
     #[tokio::test]
     async fn test_post_json_response() {
-        let server = HttpServer::new();
+        let server = create_test_server();
         let router = server.router();
 
         let request_body = json!({
@@ -368,7 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_protocol_version() {
-        let server = HttpServer::new();
+        let server = create_test_server();
         let router = server.router();
 
         let request_body = json!({
@@ -390,7 +396,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_session_management() {
-        let server = HttpServer::new();
+        let server = create_test_server();
         let router = server.router();
 
         // First request should create a session
@@ -434,7 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_session() {
-        let server = HttpServer::new();
+        let server = create_test_server();
 
         // Create a session first
         let session_id = server.get_or_create_session(None).await.unwrap();
@@ -454,7 +460,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_sse_without_session() {
-        let server = HttpServer::new();
+        let server = create_test_server();
         let router = server.router();
 
         let request = Request::builder()
