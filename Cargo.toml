@@ -2,6 +2,8 @@
 members = [
     "src/shared",
     "src/ui",
+    "src/core",
+    "src/migrations",
 ]
 resolver = "2"
 
