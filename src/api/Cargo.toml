@@ -9,6 +9,8 @@ path = "src/main.rs"
 
 [dependencies]
 luce-shared = { path = "../shared" }
+luce-core = { path = "../core" }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono", "uuid"] }
 serde = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }

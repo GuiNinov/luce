@@ -145,13 +145,15 @@ impl TaskHandler {
         let mcp_error = match error {
             LuceError::TaskNotFound { id } => McpError::task_not_found(id),
             LuceError::CircularDependency => McpError::dependency_cycle(),
+            LuceError::InvalidStateTransition { from: _, to: _ } => {
+                McpError::invalid_params("Invalid state transition".to_string())
+            }
             LuceError::DependencyError { message } => McpError::invalid_params(message),
-            LuceError::InvalidStateTransition { from, to } => McpError::invalid_params(format!(
-                "Invalid state transition from {} to {}",
-                from, to
-            )),
             LuceError::SerializationError(_) => McpError::internal_error(),
             LuceError::IoError(_) => McpError::internal_error(),
+            LuceError::InvalidTaskId(_) => {
+                McpError::invalid_params("Invalid task ID format".to_string())
+            }
         };
 
         McpResponse::Error(ErrorResponse { error: mcp_error })

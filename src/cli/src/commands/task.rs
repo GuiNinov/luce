@@ -1,7 +1,7 @@
 use crate::services::LuceService;
 use crate::TaskCommands;
-use luce_shared::{TaskPriority, TaskStatus};
 use luce_core::TaskFilter;
+use luce_shared::{TaskPriority, TaskStatus};
 
 pub async fn handle_task_command(cmd: TaskCommands, service: &LuceService) -> anyhow::Result<()> {
     match cmd {
