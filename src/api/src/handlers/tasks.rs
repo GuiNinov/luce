@@ -57,7 +57,7 @@ impl From<&Task> for TaskResponse {
             title: task.title.clone(),
             description: task.description.clone(),
             status: task.status,
-            dependencies: task.dependencies.iter().cloned().collect(),
+            dependencies: vec![], // TODO: Add dependency support
             created_at: task.created_at,
             updated_at: task.updated_at,
         }
@@ -221,6 +221,9 @@ fn handle_error(error: LuceError) -> (StatusCode, Json<serde_json::Value>) {
         }
         LuceError::IoError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "IO error"),
         LuceError::InvalidTaskId(_) => (StatusCode::BAD_REQUEST, "Invalid task ID"),
+        LuceError::DatabaseError { message: _ } => {
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+        }
     };
 
     (

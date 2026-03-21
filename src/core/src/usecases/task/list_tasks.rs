@@ -80,7 +80,7 @@ impl<R: TaskRepository + Send + Sync> UseCase<ListTasksInput, Vec<Task>> for Lis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::sqlite::SqliteTaskRepository;
+    use crate::repositories::SqliteTaskRepository;
     use crate::usecases::task::assign_session::{AssignSessionInput, AssignSessionUseCase};
     use crate::usecases::task::create_task::{CreateTaskInput, CreateTaskUseCase};
     use crate::usecases::task::update_task_status::{

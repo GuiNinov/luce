@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::path::PathBuf;
@@ -118,12 +118,12 @@ impl Migration {
                     filename: self.name.clone(),
                 })?;
 
-        Ok(Utc
+        Utc
             .with_ymd_and_hms(year, month, day, hour, minute, second)
             .single()
             .ok_or_else(|| MigrationError::InvalidFilename {
                 filename: self.name.clone(),
-            })?)
+            })
     }
 }
 
@@ -142,7 +142,7 @@ impl PartialOrd for Migration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use chrono::{Datelike, Timelike};
 
     #[test]
     fn test_parse_valid_filename() {

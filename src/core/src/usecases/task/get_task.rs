@@ -33,7 +33,7 @@ impl<R: TaskRepository + Send + Sync> UseCase<GetTaskInput, Task> for GetTaskUse
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::sqlite::SqliteTaskRepository;
+    use crate::repositories::SqliteTaskRepository;
     use crate::usecases::task::create_task::{CreateTaskInput, CreateTaskUseCase};
     use tempfile::NamedTempFile;
     use uuid::Uuid;
@@ -73,6 +73,6 @@ mod tests {
         let input = GetTaskInput::new(nonexistent_id);
         let result = get_usecase.execute(input).await;
 
-        assert!(matches!(result, Err(LuceError::TaskNotFound(_))));
+        assert!(matches!(result, Err(LuceError::TaskNotFound { id: _ })));
     }
 }

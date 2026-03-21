@@ -64,7 +64,6 @@ impl Default for ServerConfig {
     }
 }
 
-
 impl LuceConfig {
     pub fn from_env() -> anyhow::Result<Self> {
         let mut config = LuceConfig::default();

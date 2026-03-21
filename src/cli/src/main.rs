@@ -21,10 +21,6 @@ pub enum Commands {
     #[command(subcommand)]
     Task(TaskCommands),
 
-    /// Graph operations and visualization
-    #[command(subcommand)]
-    Graph(GraphCommands),
-
     /// Session management for multi-user coordination
     #[command(subcommand)]
     Session(SessionCommands),
@@ -421,7 +417,6 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Task(task_cmd) => handle_task_command(task_cmd, &service).await,
-        Commands::Graph(graph_cmd) => handle_graph_command(graph_cmd, &service).await,
         Commands::Session(session_cmd) => handle_session_command(session_cmd, &service).await,
         Commands::Integration(integration_cmd) => {
             handle_integration_command(integration_cmd, &service).await

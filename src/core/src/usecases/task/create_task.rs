@@ -60,7 +60,7 @@ impl<R: TaskRepository + Send + Sync> UseCase<CreateTaskInput, Task> for CreateT
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::sqlite::SqliteTaskRepository;
+    use crate::repositories::SqliteTaskRepository;
     use tempfile::NamedTempFile;
 
     async fn create_test_usecase() -> CreateTaskUseCase<SqliteTaskRepository> {

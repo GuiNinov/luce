@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub type TaskId = Uuid;
@@ -55,8 +55,6 @@ pub struct Task {
     pub description: Option<String>,
     pub status: TaskStatus,
     pub priority: TaskPriority,
-    pub dependencies: HashSet<TaskId>,
-    pub dependents: HashSet<TaskId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
@@ -74,8 +72,6 @@ impl Task {
             description: None,
             status: TaskStatus::Pending,
             priority: TaskPriority::default(),
-            dependencies: HashSet::new(),
-            dependents: HashSet::new(),
             created_at: now,
             updated_at: now,
             started_at: None,
@@ -93,8 +89,6 @@ impl Task {
             description: None,
             status: TaskStatus::Pending,
             priority: TaskPriority::default(),
-            dependencies: HashSet::new(),
-            dependents: HashSet::new(),
             created_at: now,
             updated_at: now,
             started_at: None,
@@ -120,26 +114,6 @@ impl Task {
         self.metadata.insert(key, value);
         self.updated_at = Utc::now();
         self
-    }
-
-    pub fn add_dependency(&mut self, dependency_id: TaskId) {
-        self.dependencies.insert(dependency_id);
-        self.updated_at = Utc::now();
-    }
-
-    pub fn remove_dependency(&mut self, dependency_id: TaskId) {
-        self.dependencies.remove(&dependency_id);
-        self.updated_at = Utc::now();
-    }
-
-    pub fn add_dependent(&mut self, dependent_id: TaskId) {
-        self.dependents.insert(dependent_id);
-        self.updated_at = Utc::now();
-    }
-
-    pub fn remove_dependent(&mut self, dependent_id: TaskId) {
-        self.dependents.remove(&dependent_id);
-        self.updated_at = Utc::now();
     }
 
     pub fn set_status(&mut self, status: TaskStatus) {
@@ -199,14 +173,6 @@ impl Task {
 
     pub fn is_assigned(&self) -> bool {
         self.assigned_session.is_some()
-    }
-
-    pub fn has_dependencies(&self) -> bool {
-        !self.dependencies.is_empty()
-    }
-
-    pub fn has_dependents(&self) -> bool {
-        !self.dependents.is_empty()
     }
 
     pub fn add_metadata(&mut self, key: String, value: String) {
@@ -281,13 +247,9 @@ mod tests {
         assert_eq!(task.title, "Test task");
         assert_eq!(task.status, TaskStatus::Pending);
         assert_eq!(task.priority, TaskPriority::Normal);
-        assert!(task.dependencies.is_empty());
-        assert!(task.dependents.is_empty());
         assert!(task.description.is_none());
         assert!(task.assigned_session.is_none());
         assert!(task.metadata.is_empty());
-        assert!(!task.has_dependencies());
-        assert!(!task.has_dependents());
         assert!(!task.is_assigned());
     }
 
@@ -381,32 +343,6 @@ mod tests {
 
         task.clear_metadata();
         assert!(task.metadata.is_empty());
-    }
-
-    #[test]
-    fn test_task_dependency_management() {
-        let mut task = Task::new("Test task".to_string());
-        let dep_id = Uuid::new_v4();
-        let dependent_id = Uuid::new_v4();
-
-        assert!(!task.has_dependencies());
-        assert!(!task.has_dependents());
-
-        task.add_dependency(dep_id);
-        assert!(task.has_dependencies());
-        assert!(task.dependencies.contains(&dep_id));
-
-        task.add_dependent(dependent_id);
-        assert!(task.has_dependents());
-        assert!(task.dependents.contains(&dependent_id));
-
-        task.remove_dependency(dep_id);
-        assert!(!task.has_dependencies());
-        assert!(!task.dependencies.contains(&dep_id));
-
-        task.remove_dependent(dependent_id);
-        assert!(!task.has_dependents());
-        assert!(!task.dependents.contains(&dependent_id));
     }
 
     #[test]

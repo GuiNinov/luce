@@ -6,46 +6,22 @@ use crate::protocol::{
 };
 use luce_core::{
     CreateTaskInput, CreateTaskUseCase, GetTaskInput, GetTaskUseCase, ListTasksInput,
-    ListTasksUseCase, SqliteGraphRepository, SqliteTaskRepository, TaskRepository,
-    UpdateTaskStatusInput, UpdateTaskStatusUseCase, UseCase,
+    ListTasksUseCase, SqliteTaskRepository, TaskRepository, UpdateTaskStatusInput,
+    UpdateTaskStatusUseCase, UseCase,
 };
-use luce_shared::{LuceError, Task, TaskGraph, TaskStatus};
+use luce_shared::LuceError;
 use std::sync::Arc;
 
 pub struct TaskHandler {
     task_repository: Arc<SqliteTaskRepository>,
-    graph_repository: Arc<SqliteGraphRepository>,
-    current_graph_id: String,
 }
 
 impl TaskHandler {
     pub async fn new(db_path: &str) -> Result<Self, LuceError> {
         let db_url = format!("sqlite:{}", db_path);
         let task_repository = Arc::new(SqliteTaskRepository::new(&db_url).await?);
-        let graph_repository = Arc::new(SqliteGraphRepository::new(&db_url).await?);
-        let current_graph_id = "default".to_string();
 
-        // Create default graph if it doesn't exist
-        let graph_exists_usecase =
-            luce_core::GraphExistsUseCase::new(Arc::clone(&graph_repository));
-        let exists_input = luce_core::GraphExistsInput {
-            id: &current_graph_id,
-        };
-
-        if !graph_exists_usecase.execute(exists_input).await? {
-            let create_graph_usecase =
-                luce_core::CreateGraphUseCase::new(Arc::clone(&graph_repository));
-            let create_input = luce_core::CreateGraphInput {
-                id: &current_graph_id,
-            };
-            create_graph_usecase.execute(create_input).await?;
-        }
-
-        Ok(Self {
-            task_repository,
-            graph_repository,
-            current_graph_id,
-        })
+        Ok(Self { task_repository })
     }
 
     pub async fn handle_request(&self, request: McpRequest) -> McpResponse {
@@ -55,8 +31,6 @@ impl TaskHandler {
             McpRequest::GetTask { params } => self.handle_get_task(params).await,
             McpRequest::UpdateTask { params } => self.handle_update_task(params).await,
             McpRequest::DeleteTask { params } => self.handle_delete_task(params).await,
-            McpRequest::GetGraph => self.handle_get_graph().await,
-            McpRequest::GetReadyTasks => self.handle_get_ready_tasks().await,
 
             // GitHub integration handlers
             McpRequest::AttachGitHubIssue { params } => {
@@ -99,49 +73,16 @@ impl TaskHandler {
         let usecase = CreateTaskUseCase::new(Arc::clone(&self.task_repository));
 
         match usecase.execute(input).await {
-            Ok(task) => {
-                // Add task to the graph
-                let add_task_usecase =
-                    luce_core::AddTaskToGraphUseCase::new(Arc::clone(&self.graph_repository));
-                let add_input = luce_core::AddTaskToGraphInput {
-                    graph_id: self.current_graph_id.clone(),
-                    task_id: task.id,
-                };
-
-                if let Err(e) = add_task_usecase.execute(add_input).await {
-                    return self.handle_error(e);
-                }
-
-                // Add dependencies if provided
-                if let Some(deps) = params.dependencies {
-                    for dep_id in deps {
-                        let add_dep_usecase = luce_core::AddDependencyUseCase::new(
-                            Arc::clone(&self.task_repository),
-                            Arc::clone(&self.graph_repository),
-                        );
-                        let dep_input = luce_core::AddDependencyInput {
-                            graph_id: self.current_graph_id.clone(),
-                            task_id: task.id,
-                            dependency_id: dep_id,
-                        };
-
-                        if let Err(e) = add_dep_usecase.execute(dep_input).await {
-                            return self.handle_error(e);
-                        }
-                    }
-                }
-
-                McpResponse::Success(Box::new(SuccessResponse {
-                    result: ResponseResult::Task(Box::new(task)),
-                }))
-            }
+            Ok(task) => McpResponse::Success(Box::new(SuccessResponse {
+                result: ResponseResult::Task(Box::new(task)),
+            })),
             Err(e) => self.handle_error(e),
         }
     }
 
     async fn handle_get_task(&self, params: GetTaskParams) -> McpResponse {
         let usecase = GetTaskUseCase::new(Arc::clone(&self.task_repository));
-        let input = GetTaskInput { id: params.id };
+        let input = GetTaskInput { task_id: params.id };
 
         match usecase.execute(input).await {
             Ok(task) => McpResponse::Success(Box::new(SuccessResponse {
@@ -154,7 +95,7 @@ impl TaskHandler {
     async fn handle_update_task(&self, params: UpdateTaskParams) -> McpResponse {
         // First get the current task to update it
         let get_usecase = GetTaskUseCase::new(Arc::clone(&self.task_repository));
-        let get_input = GetTaskInput { id: params.id };
+        let get_input = GetTaskInput { task_id: params.id };
 
         let mut task = match get_usecase.execute(get_input).await {
             Ok(task) => task,
@@ -200,55 +141,9 @@ impl TaskHandler {
     }
 
     async fn handle_delete_task(&self, params: DeleteTaskParams) -> McpResponse {
-        // Remove task from graph first
-        let remove_usecase = luce_core::RemoveTaskFromGraphUseCase::new(
-            Arc::clone(&self.task_repository),
-            Arc::clone(&self.graph_repository),
-        );
-        let remove_input = luce_core::RemoveTaskFromGraphInput {
-            graph_id: self.current_graph_id.clone(),
-            task_id: params.id,
-        };
-
-        if let Err(e) = remove_usecase.execute(remove_input).await {
-            return self.handle_error(e);
-        }
-
-        // Then delete the task from repository
         match self.task_repository.delete_task(params.id).await {
             Ok(_) => McpResponse::Success(Box::new(SuccessResponse {
                 result: ResponseResult::Empty,
-            })),
-            Err(e) => self.handle_error(e),
-        }
-    }
-
-    async fn handle_get_graph(&self) -> McpResponse {
-        let usecase = luce_core::LoadGraphUseCase::new(Arc::clone(&self.graph_repository));
-        let input = luce_core::LoadGraphInput {
-            id: self.current_graph_id.clone(),
-        };
-
-        match usecase.execute(input).await {
-            Ok(graph) => McpResponse::Success(Box::new(SuccessResponse {
-                result: ResponseResult::Graph(graph),
-            })),
-            Err(e) => self.handle_error(e),
-        }
-    }
-
-    async fn handle_get_ready_tasks(&self) -> McpResponse {
-        let usecase = luce_core::GetReadyTasksUseCase::new(
-            Arc::clone(&self.task_repository),
-            Arc::clone(&self.graph_repository),
-        );
-        let input = luce_core::GetReadyTasksInput {
-            graph_id: self.current_graph_id.clone(),
-        };
-
-        match usecase.execute(input).await {
-            Ok(ready_tasks) => McpResponse::Success(Box::new(SuccessResponse {
-                result: ResponseResult::Tasks(ready_tasks),
             })),
             Err(e) => self.handle_error(e),
         }
@@ -393,6 +288,9 @@ impl TaskHandler {
             LuceError::IoError(_) => McpError::internal_error(),
             LuceError::InvalidTaskId(_) => {
                 McpError::invalid_params("Invalid task ID format".to_string())
+            }
+            LuceError::DatabaseError { message } => {
+                McpError::internal_error()
             }
         };
 
@@ -646,23 +544,6 @@ mod tests {
         match get_response {
             McpResponse::Error(_) => {} // Expected
             _ => panic!("Expected error response for deleted task"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_get_graph() {
-        let handler = create_test_handler().await;
-
-        let response = handler.handle_get_graph().await;
-
-        match response {
-            McpResponse::Success(resp) => match resp.result {
-                ResponseResult::Graph(_graph) => {
-                    // Just verify we can get the graph
-                }
-                _ => panic!("Expected Graph response"),
-            },
-            _ => panic!("Expected success response"),
         }
     }
 
