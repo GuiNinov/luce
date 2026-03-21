@@ -3,9 +3,10 @@ use axum::{
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
         HeaderValue, Method,
     },
-    Router,
+    Extension, Router,
 };
-use std::net::SocketAddr;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use std::{net::SocketAddr, sync::Arc};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::CorsLayer,
@@ -13,18 +14,19 @@ use tower_http::{
 };
 use tracing::Level;
 
-use crate::handlers::tasks::task_routes;
+use crate::{handlers::tasks::task_routes, services::TaskService};
 
 pub struct ApiServer {
     addr: SocketAddr,
+    pool: SqlitePool,
 }
 
 impl ApiServer {
-    pub fn new(addr: SocketAddr) -> Self {
-        Self { addr }
+    pub fn new(addr: SocketAddr, pool: SqlitePool) -> Self {
+        Self { addr, pool }
     }
 
-    pub fn router() -> Router {
+    pub fn router(task_service: Arc<TaskService>) -> Router {
         let cors = CorsLayer::new()
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
@@ -37,11 +39,17 @@ impl ApiServer {
 
         Router::new()
             .nest("/api/v1", task_routes())
+            .layer(Extension(task_service))
             .layer(ServiceBuilder::new().layer(trace).layer(cors))
     }
 
     pub async fn serve(self) -> anyhow::Result<()> {
-        let app = Self::router();
+        let task_service = Arc::new(
+            TaskService::new(self.pool)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create task service: {:?}", e))?,
+        );
+        let app = Self::router(task_service);
 
         tracing::info!("Starting Luce API server on {}", self.addr);
 
@@ -52,12 +60,25 @@ impl ApiServer {
     }
 }
 
-pub async fn start_server(addr: SocketAddr) -> anyhow::Result<()> {
+pub async fn start_server(addr: SocketAddr, database_url: Option<&str>) -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_target(false)
         .compact()
         .init();
 
-    let server = ApiServer::new(addr);
+    let database_url = database_url.unwrap_or("sqlite:luce.db");
+
+    tracing::info!("Connecting to database: {}", database_url);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(database_url)
+        .await?;
+
+    // Run migrations
+    sqlx::migrate!("../migrations/migrations")
+        .run(&pool)
+        .await?;
+
+    let server = ApiServer::new(addr, pool);
     server.serve().await
 }

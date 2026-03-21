@@ -1,5 +1,6 @@
 pub mod handlers;
 pub mod server;
+pub mod services;
 
 use luce_shared::error::LuceError;
 

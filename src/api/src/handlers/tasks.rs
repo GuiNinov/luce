@@ -1,13 +1,16 @@
 use axum::{
-    extract::{Path, Query},
+    extract::{Extension, Path, Query},
     http::StatusCode,
     response::Json,
     routing::{delete, get, post, put},
     Router,
 };
-use luce_shared::{Task, TaskId, TaskStatus};
+use luce_shared::{LuceError, Task, TaskId, TaskStatus};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
+
+use crate::services::TaskService;
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateTaskRequest {
@@ -62,72 +65,140 @@ impl From<&Task> for TaskResponse {
 }
 
 pub async fn create_task(
+    Extension(service): Extension<Arc<TaskService>>,
     Json(request): Json<CreateTaskRequest>,
-) -> Result<(StatusCode, Json<TaskResponse>), StatusCode> {
-    let mut task = Task::new(request.title);
-
-    if let Some(description) = request.description {
-        task = task.with_description(description);
+) -> Result<(StatusCode, Json<TaskResponse>), (StatusCode, Json<serde_json::Value>)> {
+    match service
+        .create_task(request.title, request.description, request.dependencies)
+        .await
+    {
+        Ok(task) => {
+            let response = TaskResponse::from(&task);
+            Ok((StatusCode::CREATED, Json(response)))
+        }
+        Err(e) => Err(handle_error(e)),
     }
-
-    for dep_id in request.dependencies {
-        task.dependencies.insert(dep_id);
-    }
-
-    let response = TaskResponse::from(&task);
-    Ok((StatusCode::CREATED, Json(response)))
 }
 
-pub async fn get_task(Path(task_id): Path<String>) -> Result<Json<TaskResponse>, StatusCode> {
-    let _id = Uuid::parse_str(&task_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+pub async fn get_task(
+    Extension(service): Extension<Arc<TaskService>>,
+    Path(task_id): Path<String>,
+) -> Result<Json<TaskResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let id = Uuid::parse_str(&task_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid UUID format"
+            })),
+        )
+    })?;
 
-    let task = Task::new("Placeholder Task".to_string());
-    let response = TaskResponse::from(&task);
-    Ok(Json(response))
+    match service.get_task(id).await {
+        Ok(task) => {
+            let response = TaskResponse::from(&task);
+            Ok(Json(response))
+        }
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
 pub async fn update_task(
+    Extension(service): Extension<Arc<TaskService>>,
     Path(task_id): Path<String>,
-    Json(_request): Json<UpdateTaskRequest>,
-) -> Result<Json<TaskResponse>, StatusCode> {
-    let _id = Uuid::parse_str(&task_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    Json(request): Json<UpdateTaskRequest>,
+) -> Result<Json<TaskResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let id = Uuid::parse_str(&task_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid UUID format"
+            })),
+        )
+    })?;
 
-    let task = Task::new("Updated Placeholder Task".to_string());
-    let response = TaskResponse::from(&task);
-    Ok(Json(response))
+    match service
+        .update_task(id, request.title, request.description, request.status)
+        .await
+    {
+        Ok(task) => {
+            let response = TaskResponse::from(&task);
+            Ok(Json(response))
+        }
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
-pub async fn delete_task(Path(task_id): Path<String>) -> Result<StatusCode, StatusCode> {
-    let _id = Uuid::parse_str(&task_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+pub async fn delete_task(
+    Extension(service): Extension<Arc<TaskService>>,
+    Path(task_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    let id = Uuid::parse_str(&task_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid UUID format"
+            })),
+        )
+    })?;
 
-    Ok(StatusCode::NO_CONTENT)
+    match service.delete_task(id).await {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
 pub async fn list_tasks(
-    Query(_params): Query<ListTasksQuery>,
-) -> Result<Json<GraphResponse>, StatusCode> {
-    let tasks = vec![];
-    let response = GraphResponse {
-        tasks,
-        total_count: 0,
-    };
-
-    Ok(Json(response))
+    Extension(service): Extension<Arc<TaskService>>,
+    Query(params): Query<ListTasksQuery>,
+) -> Result<Json<GraphResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match service
+        .list_tasks(params.status, params.limit, params.offset)
+        .await
+    {
+        Ok((tasks, total_count)) => {
+            let task_responses: Vec<TaskResponse> = tasks.iter().map(TaskResponse::from).collect();
+            let response = GraphResponse {
+                tasks: task_responses,
+                total_count,
+            };
+            Ok(Json(response))
+        }
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
-pub async fn get_ready_tasks() -> Result<Json<Vec<TaskResponse>>, StatusCode> {
-    let ready_tasks = vec![];
-    Ok(Json(ready_tasks))
+pub async fn get_ready_tasks(
+    Extension(service): Extension<Arc<TaskService>>,
+) -> Result<Json<Vec<TaskResponse>>, (StatusCode, Json<serde_json::Value>)> {
+    match service.get_ready_tasks().await {
+        Ok(tasks) => {
+            let task_responses: Vec<TaskResponse> = tasks.iter().map(TaskResponse::from).collect();
+            Ok(Json(task_responses))
+        }
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
 pub async fn mark_task_completed(
+    Extension(service): Extension<Arc<TaskService>>,
     Path(task_id): Path<String>,
-) -> Result<Json<TaskResponse>, StatusCode> {
-    let _id = Uuid::parse_str(&task_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+) -> Result<Json<TaskResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let id = Uuid::parse_str(&task_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid UUID format"
+            })),
+        )
+    })?;
 
-    let task = Task::new("Completed Placeholder Task".to_string());
-    let response = TaskResponse::from(&task);
-    Ok(Json(response))
+    match service.mark_task_completed(id).await {
+        Ok(task) => {
+            let response = TaskResponse::from(&task);
+            Ok(Json(response))
+        }
+        Err(e) => Err(handle_error(e)),
+    }
 }
 
 pub async fn health_check() -> Result<Json<serde_json::Value>, StatusCode> {
@@ -135,6 +206,30 @@ pub async fn health_check() -> Result<Json<serde_json::Value>, StatusCode> {
         "status": "healthy",
         "timestamp": chrono::Utc::now()
     })))
+}
+
+fn handle_error(error: LuceError) -> (StatusCode, Json<serde_json::Value>) {
+    let (status, message) = match error {
+        LuceError::TaskNotFound { id: _ } => (StatusCode::NOT_FOUND, "Task not found"),
+        LuceError::CircularDependency => (StatusCode::BAD_REQUEST, "Circular dependency detected"),
+        LuceError::InvalidStateTransition { from: _, to: _ } => {
+            (StatusCode::BAD_REQUEST, "Invalid state transition")
+        }
+        LuceError::DependencyError { message: _ } => (StatusCode::BAD_REQUEST, "Dependency error"),
+        LuceError::SerializationError(_) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, "Serialization error")
+        }
+        LuceError::IoError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "IO error"),
+        LuceError::InvalidTaskId(_) => (StatusCode::BAD_REQUEST, "Invalid task ID"),
+    };
+
+    (
+        status,
+        Json(serde_json::json!({
+            "error": message,
+            "details": error.to_string()
+        })),
+    )
 }
 
 pub fn task_routes() -> Router {
