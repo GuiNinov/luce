@@ -1,6 +1,8 @@
 use crate::{IntegrationEventBus, TaskChanges};
 use anyhow::Result;
-use luce_shared::TaskId;
+use luce_shared::{
+    LinearAttachment, LinearIssueState as SharedLinearIssueState, TaskAttachment, TaskId,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -449,6 +451,161 @@ impl LinearIntegration {
             LinearStateType::Canceled => "Failed",
         }
     }
+
+    // Issue Attachment Methods
+
+    /// Convert Linear state type to shared LinearIssueState
+    fn map_linear_state_type(state_type: &LinearStateType) -> SharedLinearIssueState {
+        match state_type {
+            LinearStateType::Backlog => SharedLinearIssueState::Backlog,
+            LinearStateType::Unstarted => SharedLinearIssueState::Todo,
+            LinearStateType::Started => SharedLinearIssueState::InProgress,
+            LinearStateType::Completed => SharedLinearIssueState::Done,
+            LinearStateType::Canceled => SharedLinearIssueState::Canceled,
+        }
+    }
+
+    /// Convert Linear priority to string representation
+    fn map_linear_priority(priority: &LinearPriority) -> String {
+        match priority {
+            LinearPriority::NoPriority => "None".to_string(),
+            LinearPriority::Low => "Low".to_string(),
+            LinearPriority::Medium => "Medium".to_string(),
+            LinearPriority::High => "High".to_string(),
+            LinearPriority::Urgent => "Urgent".to_string(),
+        }
+    }
+
+    /// Create a task attachment from a Linear issue
+    pub fn create_issue_attachment(&self, task_id: TaskId, issue: &LinearIssue) -> TaskAttachment {
+        let linear_attachment = LinearAttachment {
+            issue_id: issue.id.clone(),
+            identifier: issue.identifier.clone(),
+            title: issue.title.clone(),
+            state: Self::map_linear_state_type(&issue.state.type_),
+            team_id: issue.team.id.clone(),
+            assignee: issue.assignee.as_ref().map(|u| u.email.clone()),
+            priority: Some(Self::map_linear_priority(&issue.priority)),
+            url: issue.url.clone(),
+        };
+
+        TaskAttachment::new_linear(task_id, linear_attachment)
+    }
+
+    /// Get a Linear issue by identifier (e.g., "ENG-123")
+    pub async fn get_issue_by_identifier(&self, identifier: &str) -> Result<LinearIssue> {
+        let query = r#"
+            query IssueByIdentifier($identifier: String!) {
+                issue(identifier: $identifier) {
+                    id
+                    identifier
+                    title
+                    description
+                    priority
+                    state {
+                        id
+                        name
+                        type
+                    }
+                    assignee {
+                        id
+                        name
+                        email
+                    }
+                    team {
+                        id
+                        name
+                        key
+                    }
+                    url
+                }
+            }
+        "#;
+
+        let variables = serde_json::json!({
+            "identifier": identifier
+        });
+
+        let request_body = LinearGraphQLQuery {
+            query: query.to_string(),
+            variables,
+        };
+
+        let response = self
+            .client
+            .post("https://api.linear.app/graphql")
+            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        let graphql_response: LinearGraphQLResponse = response.json().await?;
+
+        if let Some(errors) = graphql_response.errors {
+            return Err(anyhow::anyhow!("GraphQL errors: {:?}", errors));
+        }
+
+        let data = graphql_response
+            .data
+            .ok_or_else(|| anyhow::anyhow!("No data in response"))?;
+
+        let issue_value = data
+            .get("issue")
+            .ok_or_else(|| anyhow::anyhow!("No issue in response data"))?;
+
+        if issue_value.is_null() {
+            return Err(anyhow::anyhow!("Issue not found: {}", identifier));
+        }
+
+        let issue: LinearIssue = serde_json::from_value(issue_value.clone())?;
+        Ok(issue)
+    }
+
+    /// Attach a Linear issue to a task by identifier
+    pub async fn attach_issue(
+        &self,
+        task_id: TaskId,
+        issue_identifier: &str,
+    ) -> Result<TaskAttachment> {
+        let issue = self.get_issue_by_identifier(issue_identifier).await?;
+        let attachment = self.create_issue_attachment(task_id, &issue);
+        Ok(attachment)
+    }
+
+    /// Create a Linear issue and immediately attach it to a task
+    pub async fn create_and_attach_issue(
+        &self,
+        task_id: TaskId,
+        title: &str,
+        description: Option<&str>,
+    ) -> Result<TaskAttachment> {
+        let issue = self.create_issue(task_id, title, description).await?;
+        let attachment = self.create_issue_attachment(task_id, &issue);
+        Ok(attachment)
+    }
+
+    /// Update an attachment with the latest issue data
+    pub async fn refresh_issue_attachment(&self, attachment: &mut TaskAttachment) -> Result<()> {
+        match &attachment.data {
+            luce_shared::AttachmentData::Linear(linear_data) => {
+                let issue = self
+                    .get_issue_by_identifier(&linear_data.identifier)
+                    .await?;
+
+                // Create a new attachment with updated data and merge it
+                let updated_attachment = self.create_issue_attachment(attachment.task_id, &issue);
+                if let luce_shared::AttachmentData::Linear(updated_linear_data) =
+                    updated_attachment.data
+                {
+                    attachment.data = luce_shared::AttachmentData::Linear(updated_linear_data);
+                    attachment.touch();
+                }
+            }
+            _ => return Err(anyhow::anyhow!("Attachment is not a Linear attachment")),
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -623,5 +780,94 @@ mod tests {
 
         assert_eq!(changes.title.as_ref().unwrap(), "Updated Title");
         assert_eq!(changes.priority.as_ref().unwrap(), "High");
+    }
+
+    #[test]
+    fn test_create_issue_attachment() {
+        let event_bus = IntegrationEventBus::new();
+        let config = create_test_config();
+        let integration = LinearIntegration::new(config, event_bus);
+        let task_id = TaskId::new_v4();
+
+        let issue = LinearIssue {
+            id: "issue-123".to_string(),
+            identifier: "ENG-456".to_string(),
+            title: "Fix critical bug".to_string(),
+            description: Some("This is a critical bug that needs fixing".to_string()),
+            priority: LinearPriority::High,
+            state: LinearState {
+                id: "state-123".to_string(),
+                name: "In Progress".to_string(),
+                type_: LinearStateType::Started,
+            },
+            assignee: Some(LinearUser {
+                id: "user-123".to_string(),
+                name: "Engineer".to_string(),
+                email: "engineer@example.com".to_string(),
+            }),
+            team: LinearTeam {
+                id: "team-123".to_string(),
+                name: "Engineering".to_string(),
+                key: "ENG".to_string(),
+            },
+            project: None,
+            cycle: None,
+            url: "https://linear.app/team/issue/ENG-456".to_string(),
+        };
+
+        let attachment = integration.create_issue_attachment(task_id, &issue);
+
+        assert_eq!(attachment.task_id, task_id);
+        assert_eq!(attachment.title(), "Fix critical bug");
+        assert_eq!(attachment.url(), "https://linear.app/team/issue/ENG-456");
+        assert_eq!(attachment.identifier(), "ENG-456");
+
+        match &attachment.data {
+            luce_shared::AttachmentData::Linear(linear_data) => {
+                assert_eq!(linear_data.issue_id, "issue-123");
+                assert_eq!(linear_data.identifier, "ENG-456");
+                assert_eq!(linear_data.title, "Fix critical bug");
+                assert_eq!(linear_data.state, SharedLinearIssueState::InProgress);
+                assert_eq!(linear_data.team_id, "team-123");
+                assert_eq!(
+                    linear_data.assignee,
+                    Some("engineer@example.com".to_string())
+                );
+                assert_eq!(linear_data.priority, Some("High".to_string()));
+            }
+            _ => panic!("Expected Linear attachment"),
+        }
+    }
+
+    #[test]
+    fn test_linear_state_mapping() {
+        let test_cases = vec![
+            (LinearStateType::Backlog, SharedLinearIssueState::Backlog),
+            (LinearStateType::Unstarted, SharedLinearIssueState::Todo),
+            (LinearStateType::Started, SharedLinearIssueState::InProgress),
+            (LinearStateType::Completed, SharedLinearIssueState::Done),
+            (LinearStateType::Canceled, SharedLinearIssueState::Canceled),
+        ];
+
+        for (linear_state, expected_shared_state) in test_cases {
+            let mapped = LinearIntegration::map_linear_state_type(&linear_state);
+            assert_eq!(mapped, expected_shared_state);
+        }
+    }
+
+    #[test]
+    fn test_linear_priority_mapping() {
+        let test_cases = vec![
+            (LinearPriority::NoPriority, "None"),
+            (LinearPriority::Low, "Low"),
+            (LinearPriority::Medium, "Medium"),
+            (LinearPriority::High, "High"),
+            (LinearPriority::Urgent, "Urgent"),
+        ];
+
+        for (linear_priority, expected_string) in test_cases {
+            let mapped = LinearIntegration::map_linear_priority(&linear_priority);
+            assert_eq!(mapped, expected_string);
+        }
     }
 }

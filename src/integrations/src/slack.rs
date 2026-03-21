@@ -1,6 +1,6 @@
 use crate::{IntegrationEventBus, TaskChanges};
 use anyhow::Result;
-use luce_shared::TaskId;
+use luce_shared::{SlackAttachment, TaskAttachment, TaskId};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -494,6 +494,216 @@ impl SlackIntegration {
 
         signature == expected
     }
+
+    // Thread Attachment Methods
+
+    /// Get conversation info for a channel
+    pub async fn get_conversation_info(&self, channel_id: &str) -> Result<serde_json::Value> {
+        let url = format!(
+            "https://slack.com/api/conversations.info?channel={}",
+            channel_id
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.config.bot_token))
+            .send()
+            .await?;
+
+        let slack_response: serde_json::Value = response.json().await?;
+
+        if !slack_response["ok"].as_bool().unwrap_or(false) {
+            return Err(anyhow::anyhow!(
+                "Slack API error: {:?}",
+                slack_response["error"]
+            ));
+        }
+
+        Ok(slack_response)
+    }
+
+    /// Get conversation history to find thread information
+    pub async fn get_conversation_history(
+        &self,
+        channel_id: &str,
+        ts: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "https://slack.com/api/conversations.history?channel={}&latest={}&limit=1&inclusive=true",
+            channel_id, ts
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.config.bot_token))
+            .send()
+            .await?;
+
+        let slack_response: serde_json::Value = response.json().await?;
+
+        if !slack_response["ok"].as_bool().unwrap_or(false) {
+            return Err(anyhow::anyhow!(
+                "Slack API error: {:?}",
+                slack_response["error"]
+            ));
+        }
+
+        Ok(slack_response)
+    }
+
+    /// Get replies for a thread
+    pub async fn get_thread_replies(
+        &self,
+        channel_id: &str,
+        thread_ts: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "https://slack.com/api/conversations.replies?channel={}&ts={}",
+            channel_id, thread_ts
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.config.bot_token))
+            .send()
+            .await?;
+
+        let slack_response: serde_json::Value = response.json().await?;
+
+        if !slack_response["ok"].as_bool().unwrap_or(false) {
+            return Err(anyhow::anyhow!(
+                "Slack API error: {:?}",
+                slack_response["error"]
+            ));
+        }
+
+        Ok(slack_response)
+    }
+
+    /// Create a task attachment from Slack thread information
+    pub async fn create_thread_attachment(
+        &self,
+        task_id: TaskId,
+        channel_id: &str,
+        thread_ts: &str,
+    ) -> Result<TaskAttachment> {
+        // Get channel info
+        let channel_info = self.get_conversation_info(channel_id).await?;
+        let channel_name = channel_info["channel"]["name"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_string();
+
+        // Get the original message
+        let history = self.get_conversation_history(channel_id, thread_ts).await?;
+        let empty_vec = vec![];
+        let messages = history["messages"].as_array().unwrap_or(&empty_vec);
+
+        if messages.is_empty() {
+            return Err(anyhow::anyhow!("Thread message not found"));
+        }
+
+        let original_message = &messages[0];
+        let message_text = original_message["text"].as_str().unwrap_or("").to_string();
+        let author_user_id = original_message["user"].as_str().unwrap_or("unknown");
+
+        // Get thread replies to count them
+        let replies = self.get_thread_replies(channel_id, thread_ts).await?;
+        let reply_count = replies["messages"]
+            .as_array()
+            .map(|msgs| msgs.len().saturating_sub(1)) // Subtract original message
+            .unwrap_or(0) as u32;
+
+        // Create thread URL
+        let thread_url = format!(
+            "https://workspace.slack.com/archives/{}/p{}",
+            channel_id,
+            thread_ts.replace(".", "")
+        );
+
+        // Truncate message for preview (max 100 chars)
+        let message_preview = if message_text.len() > 100 {
+            format!("{}...", &message_text[..100])
+        } else {
+            message_text
+        };
+
+        let slack_attachment = SlackAttachment {
+            channel_id: channel_id.to_string(),
+            channel_name,
+            thread_ts: thread_ts.to_string(),
+            message_preview,
+            author: author_user_id.to_string(),
+            reply_count,
+            url: thread_url,
+        };
+
+        Ok(TaskAttachment::new_slack(task_id, slack_attachment))
+    }
+
+    /// Attach a Slack thread to a task
+    pub async fn attach_thread(
+        &self,
+        task_id: TaskId,
+        channel_id: &str,
+        thread_ts: &str,
+    ) -> Result<TaskAttachment> {
+        self.create_thread_attachment(task_id, channel_id, thread_ts)
+            .await
+    }
+
+    /// Start a new thread for a task and attach it
+    pub async fn create_and_attach_thread(
+        &self,
+        task_id: TaskId,
+        channel_id: &str,
+        message_text: &str,
+    ) -> Result<TaskAttachment> {
+        let message = SlackMessage {
+            channel: channel_id.to_string(),
+            text: message_text.to_string(),
+            thread_ts: None,
+            blocks: None,
+        };
+
+        // Post the message to start a thread
+        let response = self.post_message(&message).await?;
+
+        let thread_ts = response["ts"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get message timestamp"))?;
+
+        // Create attachment for the new thread
+        self.create_thread_attachment(task_id, channel_id, thread_ts)
+            .await
+    }
+
+    /// Update an attachment with the latest thread data
+    pub async fn refresh_thread_attachment(&self, attachment: &mut TaskAttachment) -> Result<()> {
+        match &attachment.data {
+            luce_shared::AttachmentData::Slack(slack_data) => {
+                let updated_attachment = self
+                    .create_thread_attachment(
+                        attachment.task_id,
+                        &slack_data.channel_id,
+                        &slack_data.thread_ts,
+                    )
+                    .await?;
+
+                if let luce_shared::AttachmentData::Slack(updated_slack_data) =
+                    updated_attachment.data
+                {
+                    attachment.data = luce_shared::AttachmentData::Slack(updated_slack_data);
+                    attachment.touch();
+                }
+            }
+            _ => return Err(anyhow::anyhow!("Attachment is not a Slack attachment")),
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -641,5 +851,84 @@ mod tests {
         };
 
         assert_eq!(payload.challenge.unwrap(), "challenge_response");
+    }
+
+    #[test]
+    fn test_create_thread_attachment_mock() {
+        let event_bus = IntegrationEventBus::new();
+        let config = create_test_config();
+        let _integration = SlackIntegration::new(config, event_bus);
+        let task_id = TaskId::new_v4();
+
+        // This test verifies the attachment structure without making real API calls
+        let slack_attachment = SlackAttachment {
+            channel_id: "C1234567890".to_string(),
+            channel_name: "engineering".to_string(),
+            thread_ts: "1234567890.123456".to_string(),
+            message_preview: "Discussion about the new feature implementation".to_string(),
+            author: "U0987654321".to_string(),
+            reply_count: 5,
+            url: "https://workspace.slack.com/archives/C1234567890/p1234567890123456".to_string(),
+        };
+
+        let attachment = TaskAttachment::new_slack(task_id, slack_attachment.clone());
+
+        assert_eq!(attachment.task_id, task_id);
+        assert_eq!(
+            attachment.title(),
+            "Discussion about the new feature implementation"
+        );
+        assert_eq!(
+            attachment.url(),
+            "https://workspace.slack.com/archives/C1234567890/p1234567890123456"
+        );
+        assert_eq!(attachment.identifier(), "#engineering");
+
+        match &attachment.data {
+            luce_shared::AttachmentData::Slack(slack_data) => {
+                assert_eq!(slack_data.channel_id, "C1234567890");
+                assert_eq!(slack_data.channel_name, "engineering");
+                assert_eq!(slack_data.thread_ts, "1234567890.123456");
+                assert_eq!(
+                    slack_data.message_preview,
+                    "Discussion about the new feature implementation"
+                );
+                assert_eq!(slack_data.author, "U0987654321");
+                assert_eq!(slack_data.reply_count, 5);
+            }
+            _ => panic!("Expected Slack attachment"),
+        }
+    }
+
+    #[test]
+    fn test_slack_message_truncation() {
+        let long_message = "This is a very long message that should be truncated because it exceeds the 100 character limit for message previews in Slack attachments and we want to test this behavior properly.";
+
+        let truncated = if long_message.len() > 100 {
+            format!("{}...", &long_message[..100])
+        } else {
+            long_message.to_string()
+        };
+
+        assert!(truncated.len() <= 103); // 100 chars + "..."
+        assert!(truncated.ends_with("..."));
+        assert_eq!(&truncated[..100], &long_message[..100]);
+    }
+
+    #[test]
+    fn test_slack_thread_url_generation() {
+        let channel_id = "C1234567890";
+        let thread_ts = "1234567890.123456";
+
+        let expected_url = format!(
+            "https://workspace.slack.com/archives/{}/p{}",
+            channel_id,
+            thread_ts.replace(".", "")
+        );
+
+        assert_eq!(
+            expected_url,
+            "https://workspace.slack.com/archives/C1234567890/p1234567890123456"
+        );
     }
 }
