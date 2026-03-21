@@ -1,4 +1,4 @@
-use luce_shared::{Task, TaskGraph, TaskId};
+use luce_shared::{Task, TaskId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,12 +18,6 @@ pub enum McpRequest {
 
     #[serde(rename = "tasks/delete")]
     DeleteTask { params: DeleteTaskParams },
-
-    #[serde(rename = "graph/get")]
-    GetGraph,
-
-    #[serde(rename = "graph/ready")]
-    GetReadyTasks,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
