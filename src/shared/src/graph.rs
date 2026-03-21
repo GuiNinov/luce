@@ -105,13 +105,11 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                matches!(task.status, TaskStatus::Ready) ||
-                (matches!(task.status, TaskStatus::Pending) &&
-                task.dependencies.iter().all(|dep_id| {
-                    self.tasks
-                        .get(dep_id)
-                        .is_some_and(|dep| dep.is_completed())
-                }))
+                matches!(task.status, TaskStatus::Ready)
+                    || (matches!(task.status, TaskStatus::Pending)
+                        && task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        }))
             })
             .collect()
     }
@@ -127,18 +125,14 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                task.assigned_session.is_none() &&
-                match task.status {
-                    TaskStatus::Ready => true,
-                    TaskStatus::Pending => {
-                        task.dependencies.iter().all(|dep_id| {
-                            self.tasks
-                                .get(dep_id)
-                                .is_some_and(|dep| dep.is_completed())
-                        })
-                    },
-                    _ => false,
-                }
+                task.assigned_session.is_none()
+                    && match task.status {
+                        TaskStatus::Ready => true,
+                        TaskStatus::Pending => task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        }),
+                        _ => false,
+                    }
             })
             .collect()
     }
@@ -147,12 +141,11 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                matches!(task.status, TaskStatus::Pending) &&
-                !task.dependencies.iter().all(|dep_id| {
-                    self.tasks
-                        .get(dep_id)
-                        .is_some_and(|dep| dep.is_completed())
-                })
+                matches!(task.status, TaskStatus::Pending)
+                    && !task
+                        .dependencies
+                        .iter()
+                        .all(|dep_id| self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed()))
             })
             .collect()
     }
@@ -165,21 +158,21 @@ impl TaskGraph {
     }
 
     pub fn update_task_readiness(&mut self) {
-        let ready_task_ids: Vec<TaskId> = self.tasks
-            .iter()
-            .filter_map(|(id, task)| {
-                if matches!(task.status, TaskStatus::Pending) &&
-                   task.dependencies.iter().all(|dep_id| {
-                       self.tasks
-                           .get(dep_id)
-                           .is_some_and(|dep| dep.is_completed())
-                   }) {
-                    Some(*id)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let ready_task_ids: Vec<TaskId> =
+            self.tasks
+                .iter()
+                .filter_map(|(id, task)| {
+                    if matches!(task.status, TaskStatus::Pending)
+                        && task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        })
+                    {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
         let has_ready_tasks = !ready_task_ids.is_empty();
 
