@@ -28,6 +28,10 @@ pub enum Commands {
     /// Integration management commands
     #[command(subcommand)]
     Integration(IntegrationCommands),
+
+    /// Credential management commands  
+    #[command(subcommand)]
+    Credential(commands::credential::CredentialAction),
 }
 
 #[derive(Subcommand)]
@@ -420,6 +424,10 @@ async fn main() -> anyhow::Result<()> {
         Commands::Session(session_cmd) => handle_session_command(session_cmd, &service).await,
         Commands::Integration(integration_cmd) => {
             handle_integration_command(integration_cmd, &service).await
+        }
+        Commands::Credential(credential_action) => {
+            let credential_args = commands::credential::CredentialArgs { action: credential_action };
+            handle_credential_commands(credential_args, &service).await
         }
     }
 }

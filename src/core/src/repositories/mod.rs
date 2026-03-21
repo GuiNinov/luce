@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use luce_shared::{LuceError, Task, TaskDependency, TaskId};
+use luce_shared::{
+    CredentialData, CredentialId, CreateCredentialInput, IntegrationCredential, IntegrationType,
+    LuceError, Task, TaskDependency, TaskId, UpdateCredentialInput,
+};
 use std::sync::Arc;
 
 #[async_trait]
@@ -23,9 +26,22 @@ pub trait DependencyRepository {
     async fn remove_all_dependencies(&self, task_id: TaskId) -> Result<(), LuceError>;
 }
 
+#[async_trait]
+pub trait CredentialRepository {
+    async fn create_credential(&self, input: CreateCredentialInput) -> Result<IntegrationCredential, LuceError>;
+    async fn get_credential(&self, id: CredentialId) -> Result<IntegrationCredential, LuceError>;
+    async fn list_credentials(&self, integration_type: Option<IntegrationType>, active_only: bool) -> Result<Vec<IntegrationCredential>, LuceError>;
+    async fn update_credential(&self, id: CredentialId, input: UpdateCredentialInput) -> Result<IntegrationCredential, LuceError>;
+    async fn delete_credential(&self, id: CredentialId) -> Result<(), LuceError>;
+    async fn mark_credential_used(&self, id: CredentialId) -> Result<(), LuceError>;
+    async fn get_credential_data(&self, id: CredentialId) -> Result<CredentialData, LuceError>;
+}
+
+pub mod credentials_sqlite;
 pub mod dependency_sqlite;
 pub mod task_sqlite;
 
+pub use credentials_sqlite::SqliteCredentialRepository;
 pub use dependency_sqlite::SqliteDependencyRepository;
 pub use task_sqlite::SqliteTaskRepository;
 
@@ -76,5 +92,37 @@ impl<T: DependencyRepository + Send + Sync> DependencyRepository for Arc<T> {
 
     async fn remove_all_dependencies(&self, task_id: TaskId) -> Result<(), LuceError> {
         self.as_ref().remove_all_dependencies(task_id).await
+    }
+}
+
+// Implement CredentialRepository for Arc<T> where T: CredentialRepository
+#[async_trait]
+impl<T: CredentialRepository + Send + Sync> CredentialRepository for Arc<T> {
+    async fn create_credential(&self, input: CreateCredentialInput) -> Result<IntegrationCredential, LuceError> {
+        self.as_ref().create_credential(input).await
+    }
+
+    async fn get_credential(&self, id: CredentialId) -> Result<IntegrationCredential, LuceError> {
+        self.as_ref().get_credential(id).await
+    }
+
+    async fn list_credentials(&self, integration_type: Option<IntegrationType>, active_only: bool) -> Result<Vec<IntegrationCredential>, LuceError> {
+        self.as_ref().list_credentials(integration_type, active_only).await
+    }
+
+    async fn update_credential(&self, id: CredentialId, input: UpdateCredentialInput) -> Result<IntegrationCredential, LuceError> {
+        self.as_ref().update_credential(id, input).await
+    }
+
+    async fn delete_credential(&self, id: CredentialId) -> Result<(), LuceError> {
+        self.as_ref().delete_credential(id).await
+    }
+
+    async fn mark_credential_used(&self, id: CredentialId) -> Result<(), LuceError> {
+        self.as_ref().mark_credential_used(id).await
+    }
+
+    async fn get_credential_data(&self, id: CredentialId) -> Result<CredentialData, LuceError> {
+        self.as_ref().get_credential_data(id).await
     }
 }
