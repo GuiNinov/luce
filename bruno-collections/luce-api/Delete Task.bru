@@ -1,0 +1,34 @@
+meta {
+  name: Delete Task
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{apiUrl}}/tasks/{{taskId}}
+  body: none
+  auth: none
+}
+
+vars {
+  taskId: 550e8400-e29b-41d4-a716-446655440000
+}
+
+docs {
+  # Delete Task
+  
+  Delete a specific task by its ID.
+  
+  ## Path Parameters
+  - `id` (UUID, required): The task ID
+  
+  ## Response
+  - 204: Task deleted successfully (no content)
+  - 400: Invalid UUID format
+  - 404: Task not found
+  
+  ## Example
+  Replace `{{taskId}}` with an actual task UUID.
+  
+  **Warning**: This operation is irreversible.
+}

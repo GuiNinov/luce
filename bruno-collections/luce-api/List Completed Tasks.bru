@@ -1,0 +1,34 @@
+meta {
+  name: List Completed Tasks
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{apiUrl}}/tasks?status=Completed
+  body: none
+  auth: none
+}
+
+params:query {
+  status: Completed
+  ~limit: 
+  ~offset: 
+}
+
+docs {
+  # List Completed Tasks
+  
+  Retrieve all completed tasks.
+  
+  ## Query Parameters
+  - `status` (string): Filter by "Completed" status
+  - `limit` (number, optional): Maximum number of tasks to return
+  - `offset` (number, optional): Number of tasks to skip for pagination
+  
+  ## Response
+  - 200: List of completed tasks
+  
+  ## Use Case
+  Useful for reporting, analytics, and tracking project progress.
+}

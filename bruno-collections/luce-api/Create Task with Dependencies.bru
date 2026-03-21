@@ -1,0 +1,37 @@
+meta {
+  name: Create Task with Dependencies
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{apiUrl}}/tasks
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "Deploy application",
+    "description": "Deploy the application to production after tests pass",
+    "dependencies": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"]
+  }
+}
+
+docs {
+  # Create Task with Dependencies
+  
+  Create a task that depends on other tasks being completed first.
+  
+  ## Request Body
+  - `title` (string, required): The task title
+  - `description` (string, optional): Task description
+  - `dependencies` (array): List of task IDs this task depends on
+  
+  ## Example Dependencies
+  Update the UUIDs in the dependencies array with actual task IDs from your system.
+  
+  ## Response
+  - 201: Task created successfully with dependencies
+  - 400: Invalid dependencies or circular dependency detected
+}

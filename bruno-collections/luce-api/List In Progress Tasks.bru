@@ -1,0 +1,34 @@
+meta {
+  name: List In Progress Tasks
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{apiUrl}}/tasks?status=InProgress
+  body: none
+  auth: none
+}
+
+params:query {
+  status: InProgress
+  ~limit: 
+  ~offset: 
+}
+
+docs {
+  # List In Progress Tasks
+  
+  Retrieve all tasks currently in progress.
+  
+  ## Query Parameters
+  - `status` (string): Filter by "InProgress" status
+  - `limit` (number, optional): Maximum number of tasks to return
+  - `offset` (number, optional): Number of tasks to skip for pagination
+  
+  ## Response
+  - 200: List of in-progress tasks
+  
+  ## Use Case
+  Monitor actively worked-on tasks and workload distribution.
+}
