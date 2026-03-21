@@ -278,7 +278,7 @@ impl MigrationRunner for MigrationApplier {
 mod tests {
     use super::*;
     use std::fs;
-    use tempfile::{tempdir, NamedTempFile};
+    use tempfile::tempdir;
 
     async fn create_test_applier() -> MigrationApplier {
         // Use in-memory database for tests

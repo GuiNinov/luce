@@ -71,6 +71,31 @@ pub async fn handle_task_command(cmd: TaskCommands, service: &LuceService) -> an
         TaskCommands::RemoveMetadata { task_id, key } => {
             remove_metadata(task_id, key, service).await
         }
+        TaskCommands::AttachGitHubIssue {
+            task_id,
+            issue_number,
+        } => attach_github_issue(task_id, issue_number, service).await,
+        TaskCommands::AttachGitHubPR { task_id, pr_number } => {
+            attach_github_pr(task_id, pr_number, service).await
+        }
+        TaskCommands::CreateGitHubIssue {
+            task_id,
+            title,
+            body,
+        } => create_github_issue(task_id, title, body, service).await,
+        TaskCommands::CreateGitHubPR {
+            task_id,
+            title,
+            body,
+            head,
+            base,
+            draft,
+        } => create_github_pr(task_id, title, body, head, base, draft, service).await,
+        TaskCommands::ListAttachments { task_id } => list_attachments(task_id, service).await,
+        TaskCommands::RemoveAttachment {
+            task_id,
+            attachment_id,
+        } => remove_attachment(task_id, attachment_id, service).await,
     }
 }
 
@@ -457,5 +482,93 @@ async fn remove_metadata(
     println!("Removing metadata from task {}: {}", task_id, key);
     println!("Note: Metadata management will be implemented when core package is connected");
 
+    Ok(())
+}
+
+async fn attach_github_issue(
+    task_id: String,
+    issue_number: u32,
+    _service: &LuceService,
+) -> anyhow::Result<()> {
+    println!(
+        "Attaching GitHub issue #{} to task {}",
+        issue_number, task_id
+    );
+    // TODO: Implement GitHub issue attachment
+    println!("GitHub issue attachment functionality will be implemented with the API integration");
+    Ok(())
+}
+
+async fn attach_github_pr(
+    task_id: String,
+    pr_number: u64,
+    _service: &LuceService,
+) -> anyhow::Result<()> {
+    println!("Attaching GitHub PR #{} to task {}", pr_number, task_id);
+    // TODO: Implement GitHub PR attachment
+    println!("GitHub PR attachment functionality will be implemented with the API integration");
+    Ok(())
+}
+
+async fn create_github_issue(
+    task_id: String,
+    title: Option<String>,
+    body: Option<String>,
+    _service: &LuceService,
+) -> anyhow::Result<()> {
+    println!("Creating GitHub issue for task {}", task_id);
+    if let Some(title) = title {
+        println!("Title: {}", title);
+    }
+    if let Some(body) = body {
+        println!("Body: {}", body);
+    }
+    // TODO: Implement GitHub issue creation
+    println!("GitHub issue creation functionality will be implemented with the API integration");
+    Ok(())
+}
+
+async fn create_github_pr(
+    task_id: String,
+    title: Option<String>,
+    body: Option<String>,
+    head: String,
+    base: String,
+    draft: bool,
+    _service: &LuceService,
+) -> anyhow::Result<()> {
+    println!("Creating GitHub PR for task {}", task_id);
+    if let Some(title) = title {
+        println!("Title: {}", title);
+    }
+    if let Some(body) = body {
+        println!("Body: {}", body);
+    }
+    println!("Head branch: {}", head);
+    println!("Base branch: {}", base);
+    println!("Draft: {}", draft);
+    // TODO: Implement GitHub PR creation
+    println!("GitHub PR creation functionality will be implemented with the API integration");
+    Ok(())
+}
+
+async fn list_attachments(task_id: String, _service: &LuceService) -> anyhow::Result<()> {
+    println!("Listing attachments for task {}", task_id);
+    // TODO: Implement attachment listing
+    println!("Attachment listing functionality will be implemented with the API integration");
+    Ok(())
+}
+
+async fn remove_attachment(
+    task_id: String,
+    attachment_id: String,
+    _service: &LuceService,
+) -> anyhow::Result<()> {
+    println!(
+        "Removing attachment {} from task {}",
+        attachment_id, task_id
+    );
+    // TODO: Implement attachment removal
+    println!("Attachment removal functionality will be implemented with the API integration");
     Ok(())
 }

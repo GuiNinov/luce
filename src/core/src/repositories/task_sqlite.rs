@@ -17,7 +17,7 @@ impl SqliteTaskRepository {
     pub async fn new(database_url: &str) -> Result<Self, LuceError> {
         let pool = SqlitePool::connect(database_url)
             .await
-            .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+            .map_err(|e| LuceError::IoError(io::Error::other(e.to_string())))?;
 
         Ok(Self { pool })
     }
@@ -77,7 +77,7 @@ impl TaskRepository for SqliteTaskRepository {
             .await
             .map_err(|e| match e {
                 sqlx::Error::RowNotFound => LuceError::TaskNotFound { id },
-                _ => LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())),
+                _ => LuceError::IoError(io::Error::other(e.to_string())),
             })?;
 
         let task_id: TaskId = Uuid::parse_str(row.get("id")).map_err(|e| {
@@ -169,7 +169,7 @@ impl TaskRepository for SqliteTaskRepository {
             .bind(id.to_string())
             .execute(&self.pool)
             .await
-            .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+            .map_err(|e| LuceError::IoError(io::Error::other(e.to_string())))?;
 
         if result.rows_affected() == 0 {
             return Err(LuceError::TaskNotFound { id });
@@ -182,7 +182,7 @@ impl TaskRepository for SqliteTaskRepository {
         let rows = sqlx::query("SELECT * FROM tasks ORDER BY created_at")
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+            .map_err(|e| LuceError::IoError(io::Error::other(e.to_string())))?;
 
         let mut tasks = Vec::new();
         for row in rows {

@@ -1,6 +1,6 @@
 use luce_core::{
     AssignSessionInput, AssignSessionUseCase, CreateTaskInput, CreateTaskUseCase, GetTaskInput,
-    GetTaskUseCase, ListTasksInput, ListTasksUseCase, SqliteGraphRepository, SqliteTaskRepository,
+    GetTaskUseCase, ListTasksInput, ListTasksUseCase, SqliteTaskRepository,
     TaskFilter, UpdateTaskStatusInput, UpdateTaskStatusUseCase, UseCase,
 };
 use luce_shared::{LuceError, Task, TaskId, TaskPriority, TaskStatus};
@@ -10,7 +10,6 @@ use uuid::Uuid;
 
 pub struct LuceService {
     task_repository: SqliteTaskRepository,
-    graph_repository: SqliteGraphRepository,
 }
 
 impl LuceService {
@@ -22,11 +21,9 @@ impl LuceService {
         let db_url = format!("sqlite:{}", db_path.as_ref().to_str().unwrap());
 
         let task_repository = SqliteTaskRepository::new(&db_url).await?;
-        let graph_repository = SqliteGraphRepository::new(&db_url).await?;
 
         Ok(Self {
             task_repository,
-            graph_repository,
         })
     }
 

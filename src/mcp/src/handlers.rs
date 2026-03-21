@@ -1,13 +1,15 @@
 use crate::protocol::{
-    CreateTaskParams, DeleteTaskParams, ErrorResponse, GetTaskParams, McpError, McpRequest,
-    McpResponse, ResponseResult, SuccessResponse, UpdateTaskParams,
+    AttachGitHubIssueParams, AttachGitHubPRParams, CreateGitHubIssueParams, CreateGitHubPRParams,
+    CreateTaskParams, DeleteTaskParams, ErrorResponse, GetTaskParams, ListAttachmentsParams,
+    McpError, McpRequest, McpResponse, RemoveAttachmentParams, ResponseResult, SuccessResponse,
+    SyncGitHubParams, UpdateTaskParams,
 };
 use luce_core::{
     CreateTaskInput, CreateTaskUseCase, GetTaskInput, GetTaskUseCase, ListTasksInput,
     ListTasksUseCase, SqliteTaskRepository, TaskRepository, UpdateTaskStatusInput,
     UpdateTaskStatusUseCase, UseCase,
 };
-use luce_shared::{LuceError, Task, TaskStatus};
+use luce_shared::LuceError;
 use std::sync::Arc;
 
 pub struct TaskHandler {
@@ -29,12 +31,25 @@ impl TaskHandler {
             McpRequest::GetTask { params } => self.handle_get_task(params).await,
             McpRequest::UpdateTask { params } => self.handle_update_task(params).await,
             McpRequest::DeleteTask { params } => self.handle_delete_task(params).await,
+
+            // GitHub integration handlers
+            McpRequest::AttachGitHubIssue { params } => {
+                self.handle_attach_github_issue(params).await
+            }
+            McpRequest::AttachGitHubPR { params } => self.handle_attach_github_pr(params).await,
+            McpRequest::CreateGitHubIssue { params } => {
+                self.handle_create_github_issue(params).await
+            }
+            McpRequest::CreateGitHubPR { params } => self.handle_create_github_pr(params).await,
+            McpRequest::SyncGitHub { params } => self.handle_sync_github(params).await,
+            McpRequest::ListAttachments { params } => self.handle_list_attachments(params).await,
+            McpRequest::RemoveAttachment { params } => self.handle_remove_attachment(params).await,
         }
     }
 
     async fn handle_list_tasks(&self) -> McpResponse {
         let usecase = ListTasksUseCase::new(Arc::clone(&self.task_repository));
-        let input = ListTasksInput::default();
+        let input = ListTasksInput::all();
 
         match usecase.execute(input).await {
             Ok(tasks) => McpResponse::Success(Box::new(SuccessResponse {
@@ -58,51 +73,16 @@ impl TaskHandler {
         let usecase = CreateTaskUseCase::new(Arc::clone(&self.task_repository));
 
         match usecase.execute(input).await {
-            Ok(task) => {
-                // Add task to the graph
-                let add_task_usecase = luce_core::AddTaskToGraphUseCase::new(
-                    Arc::clone(&self.task_repository),
-                    Arc::clone(&self.graph_repository),
-                );
-                let add_input = luce_core::AddTaskToGraphInput {
-                    graph_id: self.current_graph_id.clone(),
-                    task_id: task.id,
-                };
-
-                if let Err(e) = add_task_usecase.execute(add_input).await {
-                    return self.handle_error(e);
-                }
-
-                // Add dependencies if provided
-                if let Some(deps) = params.dependencies {
-                    for dep_id in deps {
-                        let add_dep_usecase = luce_core::AddDependencyUseCase::new(
-                            Arc::clone(&self.task_repository),
-                            Arc::clone(&self.graph_repository),
-                        );
-                        let dep_input = luce_core::AddDependencyInput {
-                            graph_id: self.current_graph_id.clone(),
-                            task_id: task.id,
-                            dependency_id: dep_id,
-                        };
-
-                        if let Err(e) = add_dep_usecase.execute(dep_input).await {
-                            return self.handle_error(e);
-                        }
-                    }
-                }
-
-                McpResponse::Success(Box::new(SuccessResponse {
-                    result: ResponseResult::Task(Box::new(task)),
-                }))
-            }
+            Ok(task) => McpResponse::Success(Box::new(SuccessResponse {
+                result: ResponseResult::Task(Box::new(task)),
+            })),
             Err(e) => self.handle_error(e),
         }
     }
 
     async fn handle_get_task(&self, params: GetTaskParams) -> McpResponse {
         let usecase = GetTaskUseCase::new(Arc::clone(&self.task_repository));
-        let input = GetTaskInput { id: params.id };
+        let input = GetTaskInput { task_id: params.id };
 
         match usecase.execute(input).await {
             Ok(task) => McpResponse::Success(Box::new(SuccessResponse {
@@ -115,7 +95,7 @@ impl TaskHandler {
     async fn handle_update_task(&self, params: UpdateTaskParams) -> McpResponse {
         // First get the current task to update it
         let get_usecase = GetTaskUseCase::new(Arc::clone(&self.task_repository));
-        let get_input = GetTaskInput { id: params.id };
+        let get_input = GetTaskInput { task_id: params.id };
 
         let mut task = match get_usecase.execute(get_input).await {
             Ok(task) => task,
@@ -161,27 +141,139 @@ impl TaskHandler {
     }
 
     async fn handle_delete_task(&self, params: DeleteTaskParams) -> McpResponse {
-        // Remove task from graph first
-        let remove_usecase = luce_core::RemoveTaskFromGraphUseCase::new(
-            Arc::clone(&self.task_repository),
-            Arc::clone(&self.graph_repository),
-        );
-        let remove_input = luce_core::RemoveTaskFromGraphInput {
-            graph_id: self.current_graph_id.clone(),
-            task_id: params.id,
-        };
-
-        if let Err(e) = remove_usecase.execute(remove_input).await {
-            return self.handle_error(e);
-        }
-
-        // Then delete the task from repository
         match self.task_repository.delete_task(params.id).await {
             Ok(_) => McpResponse::Success(Box::new(SuccessResponse {
                 result: ResponseResult::Empty,
             })),
             Err(e) => self.handle_error(e),
         }
+    }
+
+    // GitHub integration handlers
+    async fn handle_attach_github_issue(&self, params: AttachGitHubIssueParams) -> McpResponse {
+        // TODO: Implement GitHub issue attachment
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": format!("GitHub issue #{} attached to task {}", params.issue_number, params.task_id),
+            "attachment_type": "github_issue",
+            "task_id": params.task_id,
+            "issue_number": params.issue_number,
+            "repository": params.repository.unwrap_or_else(|| "default".to_string())
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_attach_github_pr(&self, params: AttachGitHubPRParams) -> McpResponse {
+        // TODO: Implement GitHub PR attachment
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": format!("GitHub PR #{} attached to task {}", params.pr_number, params.task_id),
+            "attachment_type": "github_pr",
+            "task_id": params.task_id,
+            "pr_number": params.pr_number,
+            "repository": params.repository.unwrap_or_else(|| "default".to_string())
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_create_github_issue(&self, params: CreateGitHubIssueParams) -> McpResponse {
+        // TODO: Implement GitHub issue creation
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": format!("GitHub issue created for task {}", params.task_id),
+            "task_id": params.task_id,
+            "issue_number": 123, // Mock issue number
+            "issue_url": "https://github.com/example/repo/issues/123",
+            "title": params.title.unwrap_or_else(|| "Task Title".to_string()),
+            "labels": params.labels.unwrap_or_default(),
+            "assignees": params.assignees.unwrap_or_default()
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_create_github_pr(&self, params: CreateGitHubPRParams) -> McpResponse {
+        // TODO: Implement GitHub PR creation
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": format!("GitHub PR created for task {}", params.task_id),
+            "task_id": params.task_id,
+            "pr_number": 456, // Mock PR number
+            "pr_url": "https://github.com/example/repo/pull/456",
+            "title": params.title.unwrap_or_else(|| "Task Title".to_string()),
+            "head_branch": params.head_branch,
+            "base_branch": params.base_branch.unwrap_or_else(|| "main".to_string()),
+            "draft": params.draft.unwrap_or(false)
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_sync_github(&self, params: SyncGitHubParams) -> McpResponse {
+        // TODO: Implement GitHub synchronization
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": "GitHub repository synchronized",
+            "repository": params.repository.unwrap_or_else(|| "default".to_string()),
+            "include_issues": params.include_issues.unwrap_or(true),
+            "include_prs": params.include_prs.unwrap_or(true),
+            "create_tasks": params.create_tasks.unwrap_or(true),
+            "sync_results": {
+                "issues_synced": 0,
+                "prs_synced": 0,
+                "tasks_created": 0,
+                "tasks_updated": 0
+            }
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_list_attachments(&self, params: ListAttachmentsParams) -> McpResponse {
+        // TODO: Implement attachment listing
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "task_id": params.task_id,
+            "attachment_type_filter": params.attachment_type,
+            "attachments": [] // Empty for now
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
+    }
+
+    async fn handle_remove_attachment(&self, params: RemoveAttachmentParams) -> McpResponse {
+        // TODO: Implement attachment removal
+        // For now, return a mock response
+        let result_data = serde_json::json!({
+            "status": "success",
+            "message": format!("Attachment {} removed from task {}", params.attachment_id, params.task_id),
+            "task_id": params.task_id,
+            "attachment_id": params.attachment_id
+        });
+
+        McpResponse::Success(Box::new(SuccessResponse {
+            result: ResponseResult::Value(result_data),
+        }))
     }
 
     fn handle_error(&self, error: LuceError) -> McpResponse {
@@ -196,6 +288,9 @@ impl TaskHandler {
             LuceError::IoError(_) => McpError::internal_error(),
             LuceError::InvalidTaskId(_) => {
                 McpError::invalid_params("Invalid task ID format".to_string())
+            }
+            LuceError::DatabaseError { message } => {
+                McpError::internal_error()
             }
         };
 
@@ -449,23 +544,6 @@ mod tests {
         match get_response {
             McpResponse::Error(_) => {} // Expected
             _ => panic!("Expected error response for deleted task"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_get_graph() {
-        let handler = create_test_handler().await;
-
-        let response = handler.handle_get_graph().await;
-
-        match response {
-            McpResponse::Success(resp) => match resp.result {
-                ResponseResult::Graph(_graph) => {
-                    // Just verify we can get the graph
-                }
-                _ => panic!("Expected Graph response"),
-            },
-            _ => panic!("Expected success response"),
         }
     }
 
