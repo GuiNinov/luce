@@ -1,12 +1,7 @@
-pub mod components;
-pub mod hooks;
-pub mod views;
+// Placeholder Rust library for workspace compatibility
+// The actual UI is now built with React TypeScript + Vite
+// See package.json and src/ directory for the React implementation
 
-use wasm_bindgen::prelude::*;
-
-use components::layout::App;
-
-#[wasm_bindgen(start)]
-pub fn run_app() {
-    yew::Renderer::<App>::new().render();
+pub fn placeholder() {
+    println!("This is a placeholder - the UI is now React-based");
 }

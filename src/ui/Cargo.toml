@@ -3,34 +3,14 @@ name = "luce-ui"
 version = "0.1.0"
 edition = "2021"
 
+# This package is now a React TypeScript frontend built with Vite
+# The Rust package serves as a placeholder to maintain workspace structure
+# Actual UI development happens in the src/ directory with npm/yarn
+
 [lib]
-crate-type = ["cdylib"]
+name = "luce_ui_placeholder"
+path = "src/lib.rs"
 
 [dependencies]
-luce-shared = { path = "../shared" }
-yew = { workspace = true, features = ["csr"] }
-wasm-bindgen = { workspace = true }
-gloo = { workspace = true }
+# Minimal dependencies for workspace compatibility
 serde = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-wasm-bindgen-futures = "0.4"
-
-[dependencies.web-sys]
-workspace = true
-features = [
-  "console",
-  "Document",
-  "Element",
-  "HtmlElement",
-  "Window",
-  "MouseEvent",
-  "KeyboardEvent",
-  "Event",
-  "EventTarget",
-  "Storage",
-  "Location",
-  "HtmlInputElement",
-  "HtmlTextAreaElement", 
-  "HtmlSelectElement",
-]
