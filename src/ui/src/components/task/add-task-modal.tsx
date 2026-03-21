@@ -27,14 +27,32 @@ interface AddTaskModalProps {
     title: string
     description?: string
     priority: TaskPriority
+    dependencyId?: string
+    dependencyType?: 'input' | 'output'
   }) => void
+  initialConnection?: {
+    taskId: string
+    taskTitle: string
+    type: 'input' | 'output'
+  }
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function AddTaskModal({ onAddTask }: AddTaskModalProps) {
-  const [open, setOpen] = useState(false)
+export function AddTaskModal({ 
+  onAddTask, 
+  initialConnection, 
+  open: controlledOpen, 
+  onOpenChange: controlledOnOpenChange 
+}: AddTaskModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [priority, setPriority] = useState<TaskPriority>("normal")
+
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled ? (controlledOnOpenChange || (() => {})) : setInternalOpen
 
   const handleSubmit = () => {
     if (!title.trim()) return
@@ -43,6 +61,8 @@ export function AddTaskModal({ onAddTask }: AddTaskModalProps) {
       title: title.trim(),
       description: description.trim() || undefined,
       priority,
+      dependencyId: initialConnection?.taskId,
+      dependencyType: initialConnection?.type,
     })
 
     setTitle("")
@@ -51,22 +71,44 @@ export function AddTaskModal({ onAddTask }: AddTaskModalProps) {
     setOpen(false)
   }
 
+  const getConnectionDescription = () => {
+    if (!initialConnection) return null
+    
+    const isInput = initialConnection.type === 'input'
+    return (
+      <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+        <p className="text-sm text-blue-800">
+          {isInput ? '📥' : '📤'} This task will be {isInput ? 'a prerequisite for' : 'dependent on'}: 
+          <span className="font-semibold ml-1">"{initialConnection.taskTitle}"</span>
+        </p>
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Task</DialogTitle>
+          <DialogTitle>
+            {initialConnection ? 'Add Connected Task' : 'Add New Task'}
+          </DialogTitle>
           <DialogDescription>
-            Create a new task for your project workflow.
+            {initialConnection 
+              ? 'Create a task with automatic dependency connection.'
+              : 'Create a new task for your project workflow.'
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {getConnectionDescription()}
           <div className="grid gap-2">
             <Label htmlFor="title">Title</Label>
             <Input
