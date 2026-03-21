@@ -1,4 +1,4 @@
-use chrono::{Utc, Datelike, Timelike};
+use chrono::{Datelike, Timelike, Utc};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -14,10 +14,9 @@ impl MigrationGenerator {
     ) -> Result<PathBuf, MigrationError> {
         // Ensure migrations directory exists
         if !migrations_dir.exists() {
-            fs::create_dir_all(migrations_dir)
-                .map_err(|e| MigrationError::ReadError {
-                    error: format!("Failed to create migrations directory: {}", e),
-                })?;
+            fs::create_dir_all(migrations_dir).map_err(|e| MigrationError::ReadError {
+                error: format!("Failed to create migrations directory: {}", e),
+            })?;
         }
 
         // Generate timestamp in YYYYMMDDHHMMSS format
@@ -35,7 +34,13 @@ impl MigrationGenerator {
         // Sanitize description for filename
         let sanitized_description = description
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>()
             .to_lowercase();
 
@@ -58,10 +63,9 @@ impl MigrationGenerator {
         let migration_content = content.unwrap_or(&default_content);
 
         // Write the migration file
-        fs::write(&file_path, migration_content)
-            .map_err(|e| MigrationError::ReadError {
-                error: format!("Failed to write migration file: {}", e),
-            })?;
+        fs::write(&file_path, migration_content).map_err(|e| MigrationError::ReadError {
+            error: format!("Failed to write migration file: {}", e),
+        })?;
 
         println!("Generated migration: {}", file_path.display());
         Ok(file_path)
@@ -90,11 +94,12 @@ mod tests {
         let file_path = MigrationGenerator::generate_migration(
             migrations_dir,
             "create user table",
-            Some("CREATE TABLE users (id INTEGER PRIMARY KEY);")
-        ).unwrap();
+            Some("CREATE TABLE users (id INTEGER PRIMARY KEY);"),
+        )
+        .unwrap();
 
         assert!(file_path.exists());
-        
+
         let filename = file_path.file_name().unwrap().to_str().unwrap();
         assert!(filename.ends_with("_create_user_table.sql"));
         assert!(filename.len() == 14 + 1 + "create_user_table".len() + 4); // timestamp + _ + description + .sql
@@ -108,11 +113,8 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let migrations_dir = temp_dir.path();
 
-        let file_path = MigrationGenerator::generate_migration(
-            migrations_dir,
-            "test migration",
-            None
-        ).unwrap();
+        let file_path =
+            MigrationGenerator::generate_migration(migrations_dir, "test migration", None).unwrap();
 
         let content = fs::read_to_string(&file_path).unwrap();
         assert!(content.contains("-- Migration: test migration"));
@@ -127,8 +129,9 @@ mod tests {
         let file_path = MigrationGenerator::generate_migration(
             migrations_dir,
             "Create User-Table & Add Indexes!",
-            Some("-- test")
-        ).unwrap();
+            Some("-- test"),
+        )
+        .unwrap();
 
         let filename = file_path.file_name().unwrap().to_str().unwrap();
         assert!(filename.contains("create_user_table___add_indexes_"));
@@ -145,8 +148,9 @@ mod tests {
         let file_path = MigrationGenerator::generate_rollback_migration(
             migrations_dir,
             "20250320174208_create_users.sql",
-            "DROP TABLE users;"
-        ).unwrap();
+            "DROP TABLE users;",
+        )
+        .unwrap();
 
         let filename = file_path.file_name().unwrap().to_str().unwrap();
         assert!(filename.contains("rollback_20250320174208_create_users"));
@@ -159,14 +163,10 @@ mod tests {
     fn test_creates_migrations_directory() {
         let temp_dir = tempdir().unwrap();
         let migrations_dir = temp_dir.path().join("new_migrations");
-        
+
         assert!(!migrations_dir.exists());
 
-        MigrationGenerator::generate_migration(
-            &migrations_dir,
-            "test",
-            Some("-- test")
-        ).unwrap();
+        MigrationGenerator::generate_migration(&migrations_dir, "test", Some("-- test")).unwrap();
 
         assert!(migrations_dir.exists());
     }

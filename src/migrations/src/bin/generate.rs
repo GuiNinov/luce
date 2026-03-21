@@ -4,7 +4,7 @@ use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 2 {
         print_usage();
         std::process::exit(1);
@@ -13,11 +13,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let description = &args[1];
     let migrations_dir = args.get(2).map(|s| s.as_str()).unwrap_or("migrations");
 
-    let file_path = MigrationGenerator::generate_migration(
-        Path::new(migrations_dir),
-        description,
-        None,
-    )?;
+    let file_path =
+        MigrationGenerator::generate_migration(Path::new(migrations_dir), description, None)?;
 
     println!("✓ Created migration file: {}", file_path.display());
     println!();

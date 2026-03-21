@@ -5,8 +5,8 @@ use sqlx::{Row, SqlitePool};
 use std::io;
 use uuid::Uuid;
 
-use luce_shared::{TaskGraph, LuceError};
 use super::GraphRepository;
+use luce_shared::{LuceError, TaskGraph};
 
 pub struct SqliteGraphRepository {
     pool: SqlitePool,
@@ -17,7 +17,7 @@ impl SqliteGraphRepository {
         let pool = SqlitePool::connect(database_url)
             .await
             .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
-        
+
         Ok(Self { pool })
     }
 }
@@ -25,9 +25,8 @@ impl SqliteGraphRepository {
 #[async_trait]
 impl GraphRepository for SqliteGraphRepository {
     async fn save_graph(&self, graph: &TaskGraph, id: &str) -> Result<(), LuceError> {
-        let graph_json = serde_json::to_string(graph)
-            .map_err(LuceError::SerializationError)?;
-        
+        let graph_json = serde_json::to_string(graph).map_err(LuceError::SerializationError)?;
+
         let now = Utc::now().to_rfc3339();
 
         sqlx::query(
@@ -62,8 +61,8 @@ impl GraphRepository for SqliteGraphRepository {
             })?;
 
         let graph_json: String = row.get("graph_data");
-        let graph: TaskGraph = serde_json::from_str(&graph_json)
-            .map_err(LuceError::SerializationError)?;
+        let graph: TaskGraph =
+            serde_json::from_str(&graph_json).map_err(LuceError::SerializationError)?;
 
         Ok(graph)
     }
@@ -88,7 +87,8 @@ impl GraphRepository for SqliteGraphRepository {
             .await
             .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
 
-        let graph_ids = rows.into_iter()
+        let graph_ids = rows
+            .into_iter()
             .map(|row| row.get::<String, _>("id"))
             .collect();
 
@@ -110,22 +110,22 @@ impl GraphRepository for SqliteGraphRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use luce_shared::Task;
     use luce_migrations::{MigrationApplier, MigrationRunner};
-    use tempfile::{NamedTempFile, tempdir};
+    use luce_shared::Task;
     use std::fs;
+    use tempfile::{tempdir, NamedTempFile};
 
     async fn create_test_graph_repo() -> SqliteGraphRepository {
         let temp_file = NamedTempFile::new().unwrap();
         let db_url = format!("sqlite:{}", temp_file.path().to_str().unwrap());
-        
+
         // Set up migrations
         let applier = MigrationApplier::new(&db_url).await.unwrap();
-        
+
         // Create a temporary migration with just the task_graphs table
         let temp_dir = tempdir().unwrap();
         let migrations_dir = temp_dir.path();
-        
+
         fs::write(
             migrations_dir.join("20250320174208_create_task_graphs_table.sql"),
             r#"
@@ -135,12 +135,13 @@ mod tests {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-            "#
-        ).unwrap();
-        
+            "#,
+        )
+        .unwrap();
+
         // Apply migrations
         applier.run_migrations(migrations_dir).await.unwrap();
-        
+
         SqliteGraphRepository::new(&db_url).await.unwrap()
     }
 
@@ -150,10 +151,10 @@ mod tests {
         let mut graph = TaskGraph::new();
         let task = Task::new("Test task".to_string());
         graph.add_task(task).unwrap();
-        
+
         let graph_id = "test_graph";
         repo.save_graph(&graph, graph_id).await.unwrap();
-        
+
         let retrieved_graph = repo.load_graph(graph_id).await.unwrap();
         assert_eq!(graph.tasks.len(), retrieved_graph.tasks.len());
     }
@@ -177,9 +178,9 @@ mod tests {
     async fn test_graph_exists() {
         let repo = create_test_graph_repo().await;
         let graph = TaskGraph::new();
-        
+
         assert!(!repo.graph_exists("nonexistent").await.unwrap());
-        
+
         repo.save_graph(&graph, "test_graph").await.unwrap();
         assert!(repo.graph_exists("test_graph").await.unwrap());
     }

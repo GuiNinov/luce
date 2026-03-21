@@ -53,7 +53,7 @@ impl From<&Task> for TaskResponse {
             id: task.id,
             title: task.title.clone(),
             description: task.description.clone(),
-            status: task.status.clone(),
+            status: task.status,
             dependencies: task.dependencies.iter().cloned().collect(),
             created_at: task.created_at,
             updated_at: task.updated_at,

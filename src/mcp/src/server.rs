@@ -1,6 +1,7 @@
 use crate::handlers::TaskHandler;
 use crate::protocol::{McpRequest, McpResponse};
 use anyhow::Result;
+use luce_shared::LuceError;
 use std::io::{self, BufRead, Write};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
@@ -10,10 +11,11 @@ pub struct McpServer {
 }
 
 impl McpServer {
-    pub fn new() -> Self {
-        Self {
-            handler: Mutex::new(TaskHandler::new()),
-        }
+    pub async fn new(db_path: &str) -> Result<Self, LuceError> {
+        let handler = TaskHandler::new(db_path).await?;
+        Ok(Self {
+            handler: Mutex::new(handler),
+        })
     }
 
     pub async fn run_stdio(&self) -> Result<()> {
@@ -37,8 +39,8 @@ impl McpServer {
 
             let response = match serde_json::from_str::<McpRequest>(trimmed) {
                 Ok(request) => {
-                    let mut handler = self.handler.lock().await;
-                    handler.handle_request(request)
+                    let handler = self.handler.lock().await;
+                    handler.handle_request(request).await
                 }
                 Err(_) => McpResponse::Error(crate::protocol::ErrorResponse {
                     error: crate::protocol::McpError::parse_error(),
@@ -68,13 +70,10 @@ impl McpServer {
             }
 
             let response = match serde_json::from_str::<McpRequest>(trimmed) {
-                Ok(request) => {
-                    let _handler = rt.block_on(self.handler.lock());
-                    rt.block_on(async {
-                        let mut handler = self.handler.lock().await;
-                        handler.handle_request(request)
-                    })
-                }
+                Ok(request) => rt.block_on(async {
+                    let handler = self.handler.lock().await;
+                    handler.handle_request(request).await
+                }),
                 Err(_) => McpResponse::Error(crate::protocol::ErrorResponse {
                     error: crate::protocol::McpError::parse_error(),
                 }),
@@ -89,34 +88,29 @@ impl McpServer {
     }
 }
 
-impl Default for McpServer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::protocol::{CreateTaskParams, GetTaskParams, ResponseResult};
     use luce_shared::TaskPriority;
+    use tempfile::NamedTempFile;
     use uuid::Uuid;
 
-    #[test]
-    fn test_server_creation() {
-        let _server = McpServer::new();
-        // Just verify it can be created without panicking
+    async fn create_test_server() -> McpServer {
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_str().unwrap();
+        McpServer::new(db_path).await.unwrap()
     }
 
-    #[test]
-    fn test_server_default() {
-        let _server = McpServer::default();
-        // Just verify default implementation works
+    #[tokio::test]
+    async fn test_server_creation() {
+        let _server = create_test_server().await;
+        // Just verify it can be created without panicking
     }
 
     #[tokio::test]
     async fn test_request_handling_through_server() {
-        let server = McpServer::new();
+        let server = create_test_server().await;
 
         // Create a task through the server
         let create_request = McpRequest::CreateTask {
@@ -128,8 +122,8 @@ mod tests {
             },
         };
 
-        let mut handler = server.handler.lock().await;
-        let response = handler.handle_request(create_request);
+        let handler = server.handler.lock().await;
+        let response = handler.handle_request(create_request).await;
 
         match response {
             McpResponse::Success(resp) => match resp.result {
@@ -149,12 +143,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_tasks_through_server() {
-        let server = McpServer::new();
-        let mut handler = server.handler.lock().await;
+        let server = create_test_server().await;
+        let handler = server.handler.lock().await;
 
         // Initially empty
         let list_request = McpRequest::ListTasks;
-        let response = handler.handle_request(list_request);
+        let response = handler.handle_request(list_request).await;
 
         match response {
             McpResponse::Success(resp) => match resp.result {
@@ -175,10 +169,10 @@ mod tests {
                 dependencies: None,
             },
         };
-        handler.handle_request(create_request);
+        handler.handle_request(create_request).await;
 
         let list_request = McpRequest::ListTasks;
-        let response = handler.handle_request(list_request);
+        let response = handler.handle_request(list_request).await;
 
         match response {
             McpResponse::Success(resp) => match resp.result {
@@ -194,8 +188,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_handling_through_server() {
-        let server = McpServer::new();
-        let mut handler = server.handler.lock().await;
+        let server = create_test_server().await;
+        let handler = server.handler.lock().await;
 
         // Try to get a non-existent task
         let nonexistent_id = Uuid::new_v4();
@@ -203,7 +197,7 @@ mod tests {
             params: GetTaskParams { id: nonexistent_id },
         };
 
-        let response = handler.handle_request(get_request);
+        let response = handler.handle_request(get_request).await;
 
         match response {
             McpResponse::Error(err) => {

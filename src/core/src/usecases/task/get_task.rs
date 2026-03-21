@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use luce_shared::{Task, TaskId, LuceError};
 use crate::repositories::TaskRepository;
 use crate::usecases::use_case::UseCase;
+use async_trait::async_trait;
+use luce_shared::{LuceError, Task, TaskId};
 
 pub struct GetTaskInput {
     pub task_id: TaskId,
@@ -34,11 +34,14 @@ impl<R: TaskRepository + Send + Sync> UseCase<GetTaskInput, Task> for GetTaskUse
 mod tests {
     use super::*;
     use crate::repositories::sqlite::SqliteTaskRepository;
-    use crate::usecases::task::create_task::{CreateTaskUseCase, CreateTaskInput};
+    use crate::usecases::task::create_task::{CreateTaskInput, CreateTaskUseCase};
     use tempfile::NamedTempFile;
     use uuid::Uuid;
 
-    async fn create_test_repos() -> (CreateTaskUseCase<SqliteTaskRepository>, GetTaskUseCase<SqliteTaskRepository>) {
+    async fn create_test_repos() -> (
+        CreateTaskUseCase<SqliteTaskRepository>,
+        GetTaskUseCase<SqliteTaskRepository>,
+    ) {
         let temp_file = NamedTempFile::new().unwrap();
         let db_url = format!("sqlite:{}", temp_file.path().to_str().unwrap());
         let repo1 = SqliteTaskRepository::new(&db_url).await.unwrap();
@@ -49,12 +52,15 @@ mod tests {
     #[tokio::test]
     async fn test_get_existing_task() {
         let (create_usecase, get_usecase) = create_test_repos().await;
-        
-        let created_task = create_usecase.execute(CreateTaskInput::new("Test task".to_string())).await.unwrap();
-        
+
+        let created_task = create_usecase
+            .execute(CreateTaskInput::new("Test task".to_string()))
+            .await
+            .unwrap();
+
         let input = GetTaskInput::new(created_task.id);
         let retrieved_task = get_usecase.execute(input).await.unwrap();
-        
+
         assert_eq!(retrieved_task.id, created_task.id);
         assert_eq!(retrieved_task.title, created_task.title);
     }
@@ -62,11 +68,11 @@ mod tests {
     #[tokio::test]
     async fn test_get_nonexistent_task() {
         let (_create_usecase, get_usecase) = create_test_repos().await;
-        
+
         let nonexistent_id = Uuid::new_v4();
         let input = GetTaskInput::new(nonexistent_id);
         let result = get_usecase.execute(input).await;
-        
+
         assert!(matches!(result, Err(LuceError::TaskNotFound(_))));
     }
 }

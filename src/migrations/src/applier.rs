@@ -10,7 +10,10 @@ use crate::migration::{Migration, MigrationError};
 pub trait MigrationRunner {
     async fn run_migrations(&self, migrations_dir: &Path) -> Result<usize, MigrationError>;
     async fn get_applied_migrations(&self) -> Result<Vec<Migration>, MigrationError>;
-    async fn get_pending_migrations(&self, migrations_dir: &Path) -> Result<Vec<Migration>, MigrationError>;
+    async fn get_pending_migrations(
+        &self,
+        migrations_dir: &Path,
+    ) -> Result<Vec<Migration>, MigrationError>;
     async fn rollback_last_migration(&self) -> Result<Option<Migration>, MigrationError>;
 }
 
@@ -20,11 +23,12 @@ pub struct MigrationApplier {
 
 impl MigrationApplier {
     pub async fn new(database_url: &str) -> Result<Self, MigrationError> {
-        let pool = SqlitePool::connect(database_url)
-            .await
-            .map_err(|e| MigrationError::DatabaseError {
-                error: e.to_string(),
-            })?;
+        let pool =
+            SqlitePool::connect(database_url)
+                .await
+                .map_err(|e| MigrationError::DatabaseError {
+                    error: e.to_string(),
+                })?;
 
         let applier = Self { pool };
         applier.create_migrations_table().await?;
@@ -50,12 +54,19 @@ impl MigrationApplier {
         Ok(())
     }
 
-    async fn load_migrations_from_dir(&self, migrations_dir: &Path) -> Result<Vec<Migration>, MigrationError> {
+    async fn load_migrations_from_dir(
+        &self,
+        migrations_dir: &Path,
+    ) -> Result<Vec<Migration>, MigrationError> {
         let mut migrations = Vec::new();
 
-        let read_dir = std::fs::read_dir(migrations_dir)
-            .map_err(|e| MigrationError::ReadError {
-                error: format!("Failed to read directory {}: {}", migrations_dir.display(), e),
+        let read_dir =
+            std::fs::read_dir(migrations_dir).map_err(|e| MigrationError::ReadError {
+                error: format!(
+                    "Failed to read directory {}: {}",
+                    migrations_dir.display(),
+                    e
+                ),
             })?;
 
         for entry in read_dir {
@@ -65,8 +76,8 @@ impl MigrationApplier {
 
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("sql") {
-                let content = std::fs::read_to_string(&path)
-                    .map_err(|e| MigrationError::ReadError {
+                let content =
+                    std::fs::read_to_string(&path).map_err(|e| MigrationError::ReadError {
                         error: format!("Failed to read {}: {}", path.display(), e),
                     })?;
 
@@ -96,11 +107,13 @@ impl MigrationApplier {
     }
 
     async fn apply_migration(&self, migration: &Migration) -> Result<(), MigrationError> {
-        let mut transaction = self.pool.begin()
-            .await
-            .map_err(|e| MigrationError::DatabaseError {
-                error: e.to_string(),
-            })?;
+        let mut transaction =
+            self.pool
+                .begin()
+                .await
+                .map_err(|e| MigrationError::DatabaseError {
+                    error: e.to_string(),
+                })?;
 
         // Execute the migration SQL
         sqlx::query(&migration.content)
@@ -121,7 +134,8 @@ impl MigrationApplier {
                 error: format!("Failed to record migration {}: {}", migration.name, e),
             })?;
 
-        transaction.commit()
+        transaction
+            .commit()
             .await
             .map_err(|e| MigrationError::DatabaseError {
                 error: e.to_string(),
@@ -155,7 +169,7 @@ impl MigrationRunner for MigrationApplier {
             .collect();
 
         let count = pending_migrations.len();
-        
+
         for migration in pending_migrations {
             println!("Applying migration: {}", migration.name);
             self.apply_migration(&migration).await?;
@@ -172,12 +186,13 @@ impl MigrationRunner for MigrationApplier {
     }
 
     async fn get_applied_migrations(&self) -> Result<Vec<Migration>, MigrationError> {
-        let rows = sqlx::query("SELECT name, applied_at FROM __luce_migrations ORDER BY applied_at")
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| MigrationError::DatabaseError {
-                error: e.to_string(),
-            })?;
+        let rows =
+            sqlx::query("SELECT name, applied_at FROM __luce_migrations ORDER BY applied_at")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| MigrationError::DatabaseError {
+                    error: e.to_string(),
+                })?;
 
         let mut migrations = Vec::new();
         for row in rows {
@@ -205,7 +220,10 @@ impl MigrationRunner for MigrationApplier {
         Ok(migrations)
     }
 
-    async fn get_pending_migrations(&self, migrations_dir: &Path) -> Result<Vec<Migration>, MigrationError> {
+    async fn get_pending_migrations(
+        &self,
+        migrations_dir: &Path,
+    ) -> Result<Vec<Migration>, MigrationError> {
         let migrations = self.load_migrations_from_dir(migrations_dir).await?;
         let applied_names = self.get_applied_migration_names().await?;
 
@@ -219,23 +237,26 @@ impl MigrationRunner for MigrationApplier {
 
     async fn rollback_last_migration(&self) -> Result<Option<Migration>, MigrationError> {
         // Get the last applied migration
-        let last_migration_row = sqlx::query("SELECT name FROM __luce_migrations ORDER BY applied_at DESC LIMIT 1")
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| MigrationError::DatabaseError {
-                error: e.to_string(),
-            })?;
+        let last_migration_row =
+            sqlx::query("SELECT name FROM __luce_migrations ORDER BY applied_at DESC LIMIT 1")
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| MigrationError::DatabaseError {
+                    error: e.to_string(),
+                })?;
 
         if let Some(row) = last_migration_row {
             let migration_name: String = row.get("name");
-            
+
             // Note: This is a simple implementation that just removes the record.
             // In a full implementation, you'd want to support rollback scripts.
             println!("Rolling back migration: {}", migration_name);
-            println!("Warning: This only removes the migration record. Manual rollback may be required.");
-            
+            println!(
+                "Warning: This only removes the migration record. Manual rollback may be required."
+            );
+
             self.remove_migration_record(&migration_name).await?;
-            
+
             let migration = Migration {
                 name: migration_name.clone(),
                 timestamp: migration_name[0..14].to_string(),
@@ -244,7 +265,7 @@ impl MigrationRunner for MigrationApplier {
                 file_path: PathBuf::from(&migration_name),
                 applied_at: None,
             };
-            
+
             Ok(Some(migration))
         } else {
             println!("No migrations to rollback.");
@@ -256,8 +277,8 @@ impl MigrationRunner for MigrationApplier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::{tempdir, NamedTempFile};
     use std::fs;
+    use tempfile::{tempdir, NamedTempFile};
 
     async fn create_test_applier() -> MigrationApplier {
         // Use in-memory database for tests
@@ -268,13 +289,15 @@ mod tests {
     #[tokio::test]
     async fn test_create_migrations_table() {
         let applier = create_test_applier().await;
-        
+
         // Verify the migrations table exists
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = '__luce_migrations'")
-            .fetch_one(&applier.pool)
-            .await
-            .unwrap();
-        
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = '__luce_migrations'",
+        )
+        .fetch_one(&applier.pool)
+        .await
+        .unwrap();
+
         assert_eq!(count, 1);
     }
 
@@ -282,20 +305,25 @@ mod tests {
     async fn test_load_migrations_from_dir() {
         let applier = create_test_applier().await;
         let temp_dir = tempdir().unwrap();
-        
+
         // Create test migration files
         fs::write(
             temp_dir.path().join("20250320174208_first_migration.sql"),
-            "CREATE TABLE test1 (id INTEGER);"
-        ).unwrap();
-        
+            "CREATE TABLE test1 (id INTEGER);",
+        )
+        .unwrap();
+
         fs::write(
             temp_dir.path().join("20250320174209_second_migration.sql"),
-            "CREATE TABLE test2 (id INTEGER);"
-        ).unwrap();
-        
-        let migrations = applier.load_migrations_from_dir(temp_dir.path()).await.unwrap();
-        
+            "CREATE TABLE test2 (id INTEGER);",
+        )
+        .unwrap();
+
+        let migrations = applier
+            .load_migrations_from_dir(temp_dir.path())
+            .await
+            .unwrap();
+
         assert_eq!(migrations.len(), 2);
         assert_eq!(migrations[0].name, "20250320174208_first_migration.sql");
         assert_eq!(migrations[1].name, "20250320174209_second_migration.sql");
@@ -306,23 +334,25 @@ mod tests {
     async fn test_run_migrations() {
         let applier = create_test_applier().await;
         let temp_dir = tempdir().unwrap();
-        
+
         // Create test migration
         fs::write(
             temp_dir.path().join("20250320174208_create_test_table.sql"),
-            "CREATE TABLE migration_test (id INTEGER PRIMARY KEY, name TEXT);"
-        ).unwrap();
-        
+            "CREATE TABLE migration_test (id INTEGER PRIMARY KEY, name TEXT);",
+        )
+        .unwrap();
+
         let count = applier.run_migrations(temp_dir.path()).await.unwrap();
         assert_eq!(count, 1);
-        
+
         // Verify table was created
-        let table_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'migration_test'")
-            .fetch_one(&applier.pool)
-            .await
-            .unwrap();
+        let table_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'migration_test'")
+                .fetch_one(&applier.pool)
+                .await
+                .unwrap();
         assert_eq!(table_count, 1);
-        
+
         // Verify migration was recorded
         let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM __luce_migrations")
             .fetch_one(&applier.pool)
@@ -335,15 +365,16 @@ mod tests {
     async fn test_get_applied_migrations() {
         let applier = create_test_applier().await;
         let temp_dir = tempdir().unwrap();
-        
+
         // Create and apply a migration
         fs::write(
             temp_dir.path().join("20250320174208_test.sql"),
-            "CREATE TABLE test (id INTEGER);"
-        ).unwrap();
-        
+            "CREATE TABLE test (id INTEGER);",
+        )
+        .unwrap();
+
         applier.run_migrations(temp_dir.path()).await.unwrap();
-        
+
         let applied = applier.get_applied_migrations().await.unwrap();
         assert_eq!(applied.len(), 1);
         assert_eq!(applied[0].name, "20250320174208_test.sql");
@@ -354,26 +385,32 @@ mod tests {
     async fn test_get_pending_migrations() {
         let applier = create_test_applier().await;
         let temp_dir = tempdir().unwrap();
-        
+
         // Create migrations
         fs::write(
             temp_dir.path().join("20250320174208_first.sql"),
-            "CREATE TABLE test1 (id INTEGER);"
-        ).unwrap();
-        
+            "CREATE TABLE test1 (id INTEGER);",
+        )
+        .unwrap();
+
         fs::write(
             temp_dir.path().join("20250320174209_second.sql"),
-            "CREATE TABLE test2 (id INTEGER);"
-        ).unwrap();
-        
+            "CREATE TABLE test2 (id INTEGER);",
+        )
+        .unwrap();
+
         // Apply only the first one
         let migration = Migration::new(
             temp_dir.path().join("20250320174208_first.sql"),
-            "CREATE TABLE test1 (id INTEGER);".to_string()
-        ).unwrap();
+            "CREATE TABLE test1 (id INTEGER);".to_string(),
+        )
+        .unwrap();
         applier.apply_migration(&migration).await.unwrap();
-        
-        let pending = applier.get_pending_migrations(temp_dir.path()).await.unwrap();
+
+        let pending = applier
+            .get_pending_migrations(temp_dir.path())
+            .await
+            .unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].name, "20250320174209_second.sql");
     }
@@ -382,20 +419,21 @@ mod tests {
     async fn test_rollback_last_migration() {
         let applier = create_test_applier().await;
         let temp_dir = tempdir().unwrap();
-        
+
         // Create and apply a migration
         fs::write(
             temp_dir.path().join("20250320174208_test.sql"),
-            "CREATE TABLE test (id INTEGER);"
-        ).unwrap();
-        
+            "CREATE TABLE test (id INTEGER);",
+        )
+        .unwrap();
+
         applier.run_migrations(temp_dir.path()).await.unwrap();
-        
+
         // Rollback
         let rolled_back = applier.rollback_last_migration().await.unwrap();
         assert!(rolled_back.is_some());
         assert_eq!(rolled_back.unwrap().name, "20250320174208_test.sql");
-        
+
         // Verify migration record was removed
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM __luce_migrations")
             .fetch_one(&applier.pool)

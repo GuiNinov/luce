@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use luce_shared::{Task, TaskPriority, LuceError};
 use crate::repositories::TaskRepository;
 use crate::usecases::use_case::UseCase;
+use async_trait::async_trait;
+use luce_shared::{LuceError, Task, TaskPriority};
 
 pub struct CreateTaskInput {
     pub title: String,
@@ -43,15 +43,15 @@ impl<R: TaskRepository> CreateTaskUseCase<R> {
 impl<R: TaskRepository + Send + Sync> UseCase<CreateTaskInput, Task> for CreateTaskUseCase<R> {
     async fn execute(&self, input: CreateTaskInput) -> Result<Task, LuceError> {
         let mut task = Task::new(input.title);
-        
+
         if let Some(description) = input.description {
             task = task.with_description(description);
         }
-        
+
         if let Some(priority) = input.priority {
             task = task.with_priority(priority);
         }
-        
+
         self.repository.save_task(&task).await?;
         Ok(task)
     }
@@ -74,9 +74,9 @@ mod tests {
     async fn test_create_simple_task() {
         let usecase = create_test_usecase().await;
         let input = CreateTaskInput::new("Test task".to_string());
-        
+
         let task = usecase.execute(input).await.unwrap();
-        
+
         assert_eq!(task.title, "Test task");
         assert_eq!(task.description, None);
         assert_eq!(task.priority, TaskPriority::Normal);
@@ -88,9 +88,9 @@ mod tests {
         let input = CreateTaskInput::new("Important task".to_string())
             .with_description("This is very important".to_string())
             .with_priority(TaskPriority::High);
-        
+
         let task = usecase.execute(input).await.unwrap();
-        
+
         assert_eq!(task.title, "Important task");
         assert_eq!(task.description, Some("This is very important".to_string()));
         assert_eq!(task.priority, TaskPriority::High);

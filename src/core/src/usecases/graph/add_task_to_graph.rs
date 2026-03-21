@@ -1,5 +1,5 @@
-use luce_shared::{TaskGraph, Task, LuceError};
 use crate::repositories::GraphRepository;
+use luce_shared::{LuceError, Task, TaskGraph};
 
 pub struct AddTaskToGraphUseCase<R: GraphRepository> {
     repository: R,
