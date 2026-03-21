@@ -1,17 +1,19 @@
 # UI Package Features Plan - MVP
 
-The `ui` package provides a minimal web-based interface for the Luce task management system, built with Yew framework for WebAssembly deployment. This MVP focuses on core task management functionality with a clean, shadcn-inspired design system.
+The `ui` package provides a minimal web-based interface for the Luce task management system, built with React, TypeScript, and React Flow. This MVP focuses on core task management functionality with a clean, shadcn/ui design system.
 
 ## Overview
 
-The UI package is implemented as a Yew-based single-page application (SPA) that provides essential task management through two primary views: graph visualization and list view, with basic task creation capabilities.
+The UI package is implemented as a React-based single-page application (SPA) that provides essential task management through two primary views: graph visualization and list view, with basic task creation capabilities.
 
 ### Core Technologies
-- **Yew Framework**: Rust-based frontend framework compiling to WebAssembly
-- **WebAssembly**: High-performance execution in web browsers
-- **Tailwind CSS**: Utility-first CSS framework for shadcn-style components
-- **SVG**: Lightweight graph rendering and interaction
-- **Component Architecture**: Reusable shadcn-inspired component system
+- **React 18**: Modern React with hooks and TypeScript
+- **TypeScript**: Type-safe development with full IntelliSense
+- **Vite**: Fast development server and build tool
+- **Tailwind CSS**: Utility-first CSS framework
+- **shadcn/ui**: Beautiful, accessible component library
+- **React Flow**: Advanced graph visualization and interaction
+- **Radix UI**: Headless UI primitives for accessibility
 
 ## Design System
 
