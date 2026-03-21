@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use chrono::{DateTime, Utc};
 use crate::task::{Task, TaskId, TaskStatus};
 use crate::LuceError;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskGraph {
@@ -51,7 +51,11 @@ impl TaskGraph {
         }
     }
 
-    pub fn add_dependency(&mut self, task_id: TaskId, dependency_id: TaskId) -> Result<(), LuceError> {
+    pub fn add_dependency(
+        &mut self,
+        task_id: TaskId,
+        dependency_id: TaskId,
+    ) -> Result<(), LuceError> {
         if task_id == dependency_id {
             return Err(LuceError::CircularDependency);
         }
@@ -80,7 +84,11 @@ impl TaskGraph {
         Ok(())
     }
 
-    pub fn remove_dependency(&mut self, task_id: TaskId, dependency_id: TaskId) -> Result<(), LuceError> {
+    pub fn remove_dependency(
+        &mut self,
+        task_id: TaskId,
+        dependency_id: TaskId,
+    ) -> Result<(), LuceError> {
         if let Some(task) = self.tasks.get_mut(&task_id) {
             task.remove_dependency(dependency_id);
         }
@@ -97,13 +105,11 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                matches!(task.status, TaskStatus::Ready) ||
-                (matches!(task.status, TaskStatus::Pending) &&
-                task.dependencies.iter().all(|dep_id| {
-                    self.tasks
-                        .get(dep_id)
-                        .map_or(false, |dep| dep.is_completed())
-                }))
+                matches!(task.status, TaskStatus::Ready)
+                    || (matches!(task.status, TaskStatus::Pending)
+                        && task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        }))
             })
             .collect()
     }
@@ -119,18 +125,14 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                task.assigned_session.is_none() &&
-                match task.status {
-                    TaskStatus::Ready => true,
-                    TaskStatus::Pending => {
-                        task.dependencies.iter().all(|dep_id| {
-                            self.tasks
-                                .get(dep_id)
-                                .map_or(false, |dep| dep.is_completed())
-                        })
-                    },
-                    _ => false,
-                }
+                task.assigned_session.is_none()
+                    && match task.status {
+                        TaskStatus::Ready => true,
+                        TaskStatus::Pending => task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        }),
+                        _ => false,
+                    }
             })
             .collect()
     }
@@ -139,12 +141,11 @@ impl TaskGraph {
         self.tasks
             .values()
             .filter(|task| {
-                matches!(task.status, TaskStatus::Pending) &&
-                !task.dependencies.iter().all(|dep_id| {
-                    self.tasks
-                        .get(dep_id)
-                        .map_or(false, |dep| dep.is_completed())
-                })
+                matches!(task.status, TaskStatus::Pending)
+                    && !task
+                        .dependencies
+                        .iter()
+                        .all(|dep_id| self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed()))
             })
             .collect()
     }
@@ -152,31 +153,29 @@ impl TaskGraph {
     pub fn get_tasks_assigned_to_session(&self, session_id: &str) -> Vec<&Task> {
         self.tasks
             .values()
-            .filter(|task| {
-                task.assigned_session.as_deref() == Some(session_id)
-            })
+            .filter(|task| task.assigned_session.as_deref() == Some(session_id))
             .collect()
     }
 
     pub fn update_task_readiness(&mut self) {
-        let ready_task_ids: Vec<TaskId> = self.tasks
-            .iter()
-            .filter_map(|(id, task)| {
-                if matches!(task.status, TaskStatus::Pending) &&
-                   task.dependencies.iter().all(|dep_id| {
-                       self.tasks
-                           .get(dep_id)
-                           .map_or(false, |dep| dep.is_completed())
-                   }) {
-                    Some(*id)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let ready_task_ids: Vec<TaskId> =
+            self.tasks
+                .iter()
+                .filter_map(|(id, task)| {
+                    if matches!(task.status, TaskStatus::Pending)
+                        && task.dependencies.iter().all(|dep_id| {
+                            self.tasks.get(dep_id).is_some_and(|dep| dep.is_completed())
+                        })
+                    {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
         let has_ready_tasks = !ready_task_ids.is_empty();
-        
+
         for task_id in ready_task_ids {
             if let Some(task) = self.tasks.get_mut(&task_id) {
                 task.set_status(TaskStatus::Ready);
@@ -192,19 +191,19 @@ impl TaskGraph {
         if let Some(task) = self.tasks.get_mut(&task_id) {
             task.set_status(TaskStatus::Completed);
             let dependents = task.dependents.clone();
-            
+
             self.update_task_readiness();
-            
+
             let newly_ready: Vec<TaskId> = dependents
                 .iter()
                 .filter(|dep_id| {
                     self.tasks
                         .get(dep_id)
-                        .map_or(false, |t| matches!(t.status, TaskStatus::Ready))
+                        .is_some_and(|t| matches!(t.status, TaskStatus::Ready))
                 })
                 .copied()
                 .collect();
-            
+
             self.updated_at = Utc::now();
             Ok(newly_ready)
         } else {
@@ -212,13 +211,17 @@ impl TaskGraph {
         }
     }
 
-    pub fn fail_task(&mut self, task_id: TaskId, block_dependents: bool) -> Result<Vec<TaskId>, LuceError> {
+    pub fn fail_task(
+        &mut self,
+        task_id: TaskId,
+        block_dependents: bool,
+    ) -> Result<Vec<TaskId>, LuceError> {
         if let Some(task) = self.tasks.get_mut(&task_id) {
             task.set_status(TaskStatus::Failed);
             let dependents = task.dependents.clone();
-            
+
             let mut blocked_tasks = Vec::new();
-            
+
             if block_dependents {
                 for dependent_id in dependents {
                     if let Some(dependent) = self.tasks.get_mut(&dependent_id) {
@@ -229,7 +232,7 @@ impl TaskGraph {
                     }
                 }
             }
-            
+
             self.updated_at = Utc::now();
             Ok(blocked_tasks)
         } else {
@@ -239,7 +242,8 @@ impl TaskGraph {
 
     pub fn get_task_dependencies(&self, task_id: &TaskId) -> Result<Vec<&Task>, LuceError> {
         if let Some(task) = self.tasks.get(task_id) {
-            Ok(task.dependencies
+            Ok(task
+                .dependencies
                 .iter()
                 .filter_map(|dep_id| self.tasks.get(dep_id))
                 .collect())
@@ -250,7 +254,8 @@ impl TaskGraph {
 
     pub fn get_task_dependents(&self, task_id: &TaskId) -> Result<Vec<&Task>, LuceError> {
         if let Some(task) = self.tasks.get(task_id) {
-            Ok(task.dependents
+            Ok(task
+                .dependents
                 .iter()
                 .filter_map(|dep_id| self.tasks.get(dep_id))
                 .collect())
@@ -315,7 +320,13 @@ impl TaskGraph {
 
         for task_id in self.tasks.keys() {
             if !visited.contains(task_id) {
-                self.dfs_find_cycles(*task_id, &mut visited, &mut rec_stack, &mut path, &mut cycles);
+                self.dfs_find_cycles(
+                    *task_id,
+                    &mut visited,
+                    &mut rec_stack,
+                    &mut path,
+                    &mut cycles,
+                );
             }
         }
 
@@ -355,7 +366,12 @@ impl TaskGraph {
         self.has_path_to_dependency(dependency_id, task_id, &mut visited)
     }
 
-    fn has_path_to_dependency(&self, start: TaskId, target: TaskId, visited: &mut HashSet<TaskId>) -> bool {
+    fn has_path_to_dependency(
+        &self,
+        start: TaskId,
+        target: TaskId,
+        visited: &mut HashSet<TaskId>,
+    ) -> bool {
         if start == target {
             return true;
         }
@@ -413,7 +429,7 @@ impl TaskGraph {
         if self.tasks.is_empty() {
             return 100.0;
         }
-        
+
         let completed = self.completed_task_count() as f64;
         let total = self.tasks.len() as f64;
         (completed / total) * 100.0
@@ -477,7 +493,7 @@ mod tests {
     #[test]
     fn test_dependency_management() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task1_id = task1.id;
@@ -507,7 +523,7 @@ mod tests {
     #[test]
     fn test_circular_dependency_prevention() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task1_id = task1.id;
@@ -526,7 +542,7 @@ mod tests {
     #[test]
     fn test_self_dependency_prevention() {
         let mut graph = TaskGraph::new();
-        
+
         let task = Task::new("Task".to_string());
         let task_id = task.id;
 
@@ -539,7 +555,7 @@ mod tests {
     #[test]
     fn test_task_readiness_calculation() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task1_id = task1.id;
@@ -563,7 +579,7 @@ mod tests {
     #[test]
     fn test_task_completion_unlocks_dependents() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task3 = Task::new("Task 3".to_string());
@@ -574,7 +590,7 @@ mod tests {
         graph.add_task(task1);
         graph.add_task(task2);
         graph.add_task(task3);
-        
+
         graph.add_dependency(task2_id, task1_id).unwrap();
         graph.add_dependency(task3_id, task1_id).unwrap();
 
@@ -587,26 +603,26 @@ mod tests {
     #[test]
     fn test_get_available_tasks() {
         let mut graph = TaskGraph::new();
-        
+
         let mut task1 = Task::new("Available task".to_string());
         task1.set_status(TaskStatus::Ready);
-        
+
         let mut task2 = Task::new("Assigned task".to_string());
         task2.set_status(TaskStatus::Ready);
         task2.assign_to_session("session-1".to_string());
-        
+
         let task3 = Task::new("Blocked task".to_string());
         let task4 = Task::new("Dependency task".to_string());
         let task3_id = task3.id;
         let task4_id = task4.id;
-        
+
         let task1_id = task1.id;
-        
+
         graph.add_task(task1);
         graph.add_task(task2);
         graph.add_task(task3);
         graph.add_task(task4);
-        
+
         graph.add_dependency(task3_id, task4_id).unwrap();
 
         let available = graph.get_available_tasks();
@@ -620,7 +636,7 @@ mod tests {
     #[test]
     fn test_get_blocked_tasks() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task1_id = task1.id;
@@ -638,14 +654,14 @@ mod tests {
     #[test]
     fn test_session_assignment_filtering() {
         let mut graph = TaskGraph::new();
-        
+
         let mut task1 = Task::new("Task 1".to_string());
         let mut task2 = Task::new("Task 2".to_string());
         let task3 = Task::new("Task 3".to_string());
-        
+
         task1.assign_to_session("session-1".to_string());
         task2.assign_to_session("session-2".to_string());
-        
+
         let task1_id = task1.id;
         let task2_id = task2.id;
 
@@ -668,7 +684,7 @@ mod tests {
     #[test]
     fn test_task_failure_with_blocking() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task1_id = task1.id;
@@ -689,7 +705,7 @@ mod tests {
     #[test]
     fn test_root_and_leaf_tasks() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Root task".to_string());
         let task2 = Task::new("Middle task".to_string());
         let task3 = Task::new("Leaf task".to_string());
@@ -700,7 +716,7 @@ mod tests {
         graph.add_task(task1);
         graph.add_task(task2);
         graph.add_task(task3);
-        
+
         graph.add_dependency(task2_id, task1_id).unwrap();
         graph.add_dependency(task3_id, task2_id).unwrap();
 
@@ -716,7 +732,7 @@ mod tests {
     #[test]
     fn test_topological_sort() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task3 = Task::new("Task 3".to_string());
@@ -727,18 +743,18 @@ mod tests {
         graph.add_task(task1);
         graph.add_task(task2);
         graph.add_task(task3);
-        
+
         graph.add_dependency(task2_id, task1_id).unwrap();
         graph.add_dependency(task3_id, task2_id).unwrap();
 
         let sorted = graph.topological_sort().unwrap();
         assert_eq!(sorted.len(), 3);
-        
+
         let sorted_ids: Vec<_> = sorted.iter().map(|t| t.id).collect();
         let task1_pos = sorted_ids.iter().position(|&id| id == task1_id).unwrap();
         let task2_pos = sorted_ids.iter().position(|&id| id == task2_id).unwrap();
         let task3_pos = sorted_ids.iter().position(|&id| id == task3_id).unwrap();
-        
+
         assert!(task1_pos < task2_pos);
         assert!(task2_pos < task3_pos);
     }
@@ -746,7 +762,7 @@ mod tests {
     #[test]
     fn test_cycle_detection() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
         let task3 = Task::new("Task 3".to_string());
@@ -757,7 +773,7 @@ mod tests {
         graph.add_task(task1);
         graph.add_task(task2);
         graph.add_task(task3);
-        
+
         graph.add_dependency(task2_id, task1_id).unwrap();
         graph.add_dependency(task3_id, task2_id).unwrap();
 
@@ -779,12 +795,12 @@ mod tests {
     #[test]
     fn test_task_statistics() {
         let mut graph = TaskGraph::new();
-        
+
         let mut task1 = Task::new("Completed task".to_string());
         task1.set_status(TaskStatus::Completed);
-        
+
         let task2 = Task::new("Pending task".to_string());
-        
+
         let mut task3 = Task::new("Ready task".to_string());
         task3.set_status(TaskStatus::Ready);
 
@@ -824,7 +840,7 @@ mod tests {
     #[test]
     fn test_task_graph_clear() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string());
         let task2 = Task::new("Task 2".to_string());
 
@@ -844,7 +860,7 @@ mod tests {
     #[test]
     fn test_task_graph_serialization() {
         let mut graph = TaskGraph::new();
-        
+
         let task1 = Task::new("Task 1".to_string())
             .with_description("First task".to_string())
             .with_priority(TaskPriority::High);
@@ -860,10 +876,14 @@ mod tests {
         let deserialized: TaskGraph = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(graph.task_count(), deserialized.task_count());
-        assert_eq!(graph.get_task(&task1_id).unwrap().title, 
-                   deserialized.get_task(&task1_id).unwrap().title);
-        assert_eq!(graph.get_task(&task2_id).unwrap().dependencies, 
-                   deserialized.get_task(&task2_id).unwrap().dependencies);
+        assert_eq!(
+            graph.get_task(&task1_id).unwrap().title,
+            deserialized.get_task(&task1_id).unwrap().title
+        );
+        assert_eq!(
+            graph.get_task(&task2_id).unwrap().dependencies,
+            deserialized.get_task(&task2_id).unwrap().dependencies
+        );
     }
 
     #[test]

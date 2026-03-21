@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 pub type TaskId = Uuid;
 
@@ -15,18 +15,13 @@ pub enum TaskStatus {
     Blocked,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum TaskPriority {
     Low = 1,
+    #[default]
     Normal = 2,
     High = 3,
     Critical = 4,
-}
-
-impl Default for TaskPriority {
-    fn default() -> Self {
-        TaskPriority::Normal
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,7 +120,7 @@ impl Task {
 
     pub fn set_status(&mut self, status: TaskStatus) {
         let now = Utc::now();
-        
+
         match (&self.status, &status) {
             (_, TaskStatus::InProgress) if self.started_at.is_none() => {
                 self.started_at = Some(now);
@@ -135,7 +130,7 @@ impl Task {
             }
             _ => {}
         }
-        
+
         self.status = status;
         self.updated_at = now;
     }
@@ -295,7 +290,7 @@ mod tests {
     #[test]
     fn test_task_status_transitions() {
         let mut task = Task::new("Test task".to_string());
-        
+
         assert!(task.is_pending());
         assert!(!task.is_ready());
         assert!(!task.is_in_progress());
@@ -333,9 +328,9 @@ mod tests {
     #[test]
     fn test_task_assignment() {
         let mut task = Task::new("Test task".to_string());
-        
+
         assert!(!task.is_assigned());
-        
+
         task.assign_to_session("session-1".to_string());
         assert!(task.is_assigned());
         assert_eq!(task.assigned_session, Some("session-1".to_string()));
@@ -348,7 +343,7 @@ mod tests {
     #[test]
     fn test_task_metadata_management() {
         let mut task = Task::new("Test task".to_string());
-        
+
         task.add_metadata("key1".to_string(), "value1".to_string());
         task.add_metadata("key2".to_string(), "value2".to_string());
 
@@ -369,7 +364,7 @@ mod tests {
         let mut task = Task::new("Test task".to_string());
         let dep_id = Uuid::new_v4();
         let dependent_id = Uuid::new_v4();
-        
+
         assert!(!task.has_dependencies());
         assert!(!task.has_dependents());
 
@@ -400,14 +395,14 @@ mod tests {
         assert!(low < normal);
         assert!(normal < high);
         assert!(high < critical);
-        
+
         assert_eq!(TaskPriority::default(), TaskPriority::Normal);
     }
 
     #[test]
     fn test_task_duration_calculations() {
         let mut task = Task::new("Test task".to_string());
-        
+
         // Test duration since created
         let duration = task.duration_since_created();
         assert!(duration.num_milliseconds() >= 0);
@@ -437,7 +432,7 @@ mod tests {
     #[test]
     fn test_task_setters() {
         let mut task = Task::new("Original title".to_string());
-        
+
         task.set_title("New title".to_string());
         assert_eq!(task.title, "New title");
 
@@ -470,11 +465,11 @@ mod tests {
     #[test]
     fn test_task_status_timestamp_transitions() {
         let mut task = Task::new("Test task".to_string());
-        
+
         // Multiple status changes to InProgress should only set started_at once
         task.set_status(TaskStatus::InProgress);
         let first_start = task.started_at.unwrap();
-        
+
         thread::sleep(Duration::from_millis(1));
         task.set_status(TaskStatus::InProgress);
         assert_eq!(task.started_at.unwrap(), first_start);
@@ -482,7 +477,7 @@ mod tests {
         // Multiple completions should only set completed_at once
         task.set_status(TaskStatus::Completed);
         let first_completion = task.completed_at.unwrap();
-        
+
         thread::sleep(Duration::from_millis(1));
         task.set_status(TaskStatus::Completed);
         assert_eq!(task.completed_at.unwrap(), first_completion);
@@ -492,7 +487,7 @@ mod tests {
     fn test_task_updated_at_changes() {
         let mut task = Task::new("Test task".to_string());
         let initial_updated = task.updated_at;
-        
+
         thread::sleep(Duration::from_millis(1));
         task.set_title("New title".to_string());
         assert!(task.updated_at > initial_updated);

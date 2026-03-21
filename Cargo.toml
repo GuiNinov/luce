@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "src/shared",
+    "src/mcp",
 ]
 resolver = "2"
 
