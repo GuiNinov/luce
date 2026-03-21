@@ -56,7 +56,7 @@ pub enum TaskCommands {
         #[arg(short, long)]
         status: Option<String>,
         /// Filter by assigned session
-        #[arg(short, long)]
+        #[arg(long)]
         session: Option<String>,
         /// Filter by priority (low, normal, high, critical)
         #[arg(short, long)]
