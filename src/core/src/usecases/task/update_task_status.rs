@@ -24,7 +24,7 @@ impl<R: TaskRepository> UpdateTaskStatusUseCase<R> {
         Self { repository }
     }
 
-    fn validate_status_transition(&self, current: TaskStatus, new: TaskStatus) -> Result<(), LuceError> {
+    fn validate_status_transition(&self, current: &TaskStatus, new: &TaskStatus) -> Result<(), LuceError> {
         use TaskStatus::*;
         
         let valid = match (current, new) {
@@ -47,9 +47,10 @@ impl<R: TaskRepository> UpdateTaskStatusUseCase<R> {
         };
 
         if !valid {
-            return Err(LuceError::InvalidStateTransition(
-                format!("Cannot transition from {:?} to {:?}", current, new)
-            ));
+            return Err(LuceError::InvalidStateTransition {
+                from: format!("{:?}", current),
+                to: format!("{:?}", new),
+            });
         }
 
         Ok(())
@@ -62,13 +63,14 @@ impl<R: TaskRepository + Send + Sync> UseCase<UpdateTaskStatusInput, Task> for U
         let mut task = self.repository.get_task(input.task_id).await?;
         
         // Validate state transition
-        self.validate_status_transition(task.status, input.new_status)?;
+        self.validate_status_transition(&task.status, &input.new_status)?;
         
-        task.status = input.new_status;
+        let new_status = input.new_status;
+        task.status = new_status;
         task.updated_at = Utc::now();
         
         // Update timestamps based on status
-        match input.new_status {
+        match new_status {
             TaskStatus::InProgress => {
                 if task.started_at.is_none() {
                     task.started_at = Some(Utc::now());
@@ -90,7 +92,7 @@ impl<R: TaskRepository + Send + Sync> UseCase<UpdateTaskStatusInput, Task> for U
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::sqlite::SqliteTaskRepository;
+    use crate::repositories::SqliteTaskRepository;
     use crate::usecases::task::create_task::{CreateTaskUseCase, CreateTaskInput};
     use tempfile::NamedTempFile;
 
@@ -149,6 +151,6 @@ mod tests {
         let input = UpdateTaskStatusInput::new(task.id, TaskStatus::Completed);
         let result = update_usecase.execute(input).await;
         
-        assert!(matches!(result, Err(LuceError::InvalidStateTransition(_))));
+        assert!(matches!(result, Err(LuceError::InvalidStateTransition { .. })));
     }
 }

@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 
 pub type TaskId = Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskStatus {
     Pending,
     Ready,

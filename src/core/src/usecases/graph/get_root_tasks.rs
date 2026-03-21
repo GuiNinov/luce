@@ -16,6 +16,6 @@ impl<R: GraphRepository> GetRootTasksUseCase<R> {
 
     pub async fn execute(&self, input: GetRootTasksInput<'_>) -> Result<Vec<TaskId>, LuceError> {
         let graph = self.repository.load_graph(input.graph_id).await?;
-        Ok(graph.get_root_tasks())
+        Ok(graph.get_root_tasks().into_iter().map(|task| task.id).collect())
     }
 }

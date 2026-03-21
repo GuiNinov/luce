@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use luce_shared::{TaskId, LuceError};
 use crate::repositories::GraphRepository;
 
@@ -15,8 +14,8 @@ impl<R: GraphRepository> GetBlockedTasksUseCase<R> {
         Self { repository }
     }
 
-    pub async fn execute(&self, input: GetBlockedTasksInput<'_>) -> Result<HashMap<TaskId, Vec<TaskId>>, LuceError> {
+    pub async fn execute(&self, input: GetBlockedTasksInput<'_>) -> Result<Vec<TaskId>, LuceError> {
         let graph = self.repository.load_graph(input.graph_id).await?;
-        Ok(graph.get_blocked_tasks())
+        Ok(graph.get_blocked_tasks().into_iter().map(|task| task.id).collect())
     }
 }

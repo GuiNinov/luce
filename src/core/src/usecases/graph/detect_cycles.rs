@@ -16,6 +16,7 @@ impl<R: GraphRepository> DetectCyclesUseCase<R> {
 
     pub async fn execute(&self, input: DetectCyclesInput<'_>) -> Result<Option<Vec<TaskId>>, LuceError> {
         let graph = self.repository.load_graph(input.graph_id).await?;
-        Ok(graph.find_cycle())
+        let cycles = graph.find_cycles();
+        Ok(cycles.first().cloned())
     }
 }

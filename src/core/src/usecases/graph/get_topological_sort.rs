@@ -16,6 +16,7 @@ impl<R: GraphRepository> GetTopologicalSortUseCase<R> {
 
     pub async fn execute(&self, input: GetTopologicalSortInput<'_>) -> Result<Vec<TaskId>, LuceError> {
         let graph = self.repository.load_graph(input.graph_id).await?;
-        graph.topological_sort()
+        let sorted_tasks = graph.topological_sort()?;
+        Ok(sorted_tasks.into_iter().map(|task| task.id).collect())
     }
 }

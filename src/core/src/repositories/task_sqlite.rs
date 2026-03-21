@@ -63,8 +63,8 @@ impl TaskRepository for SqliteTaskRepository {
         .bind(task.id.to_string())
         .bind(&task.title)
         .bind(&task.description)
-        .bind(task.status.to_string())
-        .bind(task.priority.to_string())
+        .bind(serde_json::to_string(&task.status).map_err(LuceError::SerializationError)?.trim_matches('"'))
+        .bind(serde_json::to_string(&task.priority).map_err(LuceError::SerializationError)?.trim_matches('"'))
         .bind(dependencies_json)
         .bind(dependents_json)
         .bind(&task.assigned_session)
@@ -93,10 +93,10 @@ impl TaskRepository for SqliteTaskRepository {
         let task_id: TaskId = Uuid::parse_str(row.get("id"))
             .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, e.to_string())))?;
         
-        let status: TaskStatus = row.get::<String, _>("status").parse()
+        let status: TaskStatus = serde_json::from_str(&format!("\"{}\"", row.get::<String, _>("status")))
             .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid status: {}", e))))?;
         
-        let priority: TaskPriority = row.get::<String, _>("priority").parse()
+        let priority: TaskPriority = serde_json::from_str(&format!("\"{}\"", row.get::<String, _>("priority")))
             .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid priority: {}", e))))?;
 
         let dependencies = Self::deserialize_task_ids(row.get("dependencies"))?;
@@ -169,10 +169,10 @@ impl TaskRepository for SqliteTaskRepository {
             let task_id: TaskId = Uuid::parse_str(row.get("id"))
                 .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, e.to_string())))?;
             
-            let status: TaskStatus = row.get::<String, _>("status").parse()
+            let status: TaskStatus = serde_json::from_str(&format!("\"{}\"", row.get::<String, _>("status")))
                 .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid status: {}", e))))?;
             
-            let priority: TaskPriority = row.get::<String, _>("priority").parse()
+            let priority: TaskPriority = serde_json::from_str(&format!("\"{}\"", row.get::<String, _>("priority")))
                 .map_err(|e| LuceError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid priority: {}", e))))?;
 
             let dependencies = Self::deserialize_task_ids(row.get("dependencies"))?;
