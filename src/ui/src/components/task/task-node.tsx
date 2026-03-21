@@ -30,12 +30,6 @@ export function TaskNode({ data }: TaskNodeProps) {
         return 'border-task-completed'
       case 'in-progress':
         return 'border-task-in-progress'
-      case 'ready':
-        return 'border-task-ready'
-      case 'failed':
-        return 'border-task-failed'
-      case 'blocked':
-        return 'border-task-blocked'
       default:
         return 'border-task-pending'
     }
@@ -58,7 +52,7 @@ export function TaskNode({ data }: TaskNodeProps) {
     glow: 'ring-1 ring-blue-100',
     scale: 'hover:scale-105',
     handleColor: 'bg-blue-500 hover:bg-blue-600',
-    animation: task.status === 'Ready' ? 'animate-pulse' : ''
+    animation: task.status === 'Pending' ? 'animate-pulse' : ''
   } : {
     shadow: 'shadow-md hover:shadow-lg',
     border: 'border-2', 
@@ -133,11 +127,8 @@ export function TaskNode({ data }: TaskNodeProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Ready">Ready</SelectItem>
                   <SelectItem value="InProgress">In Progress</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Failed">Failed</SelectItem>
-                  <SelectItem value="Blocked">Blocked</SelectItem>
                 </SelectContent>
               </Select>
             </div>

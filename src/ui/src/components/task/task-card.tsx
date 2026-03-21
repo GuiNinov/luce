@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "./status-badge"
+import { TaskAttachments } from "./task-attachments"
 import { Task, TaskStatus } from "@/types/task"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -60,11 +61,8 @@ export function TaskCard({ task, selected = false, onSelect, onStatusChange }: T
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Ready">Ready</SelectItem>
                 <SelectItem value="InProgress">In Progress</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Failed">Failed</SelectItem>
-                <SelectItem value="Blocked">Blocked</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -89,6 +87,9 @@ export function TaskCard({ task, selected = false, onSelect, onStatusChange }: T
             </span>
           </div>
         )}
+        <div className="mt-2">
+          <TaskAttachments taskId={task.id} compact={true} />
+        </div>
       </CardContent>
     </Card>
   )

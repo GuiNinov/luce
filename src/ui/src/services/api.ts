@@ -1,4 +1,4 @@
-import { Credential, CreateCredentialRequest, UpdateCredentialRequest } from '@/types/credentials'
+import { Attachment, CreateGitHubAttachmentRequest } from '@/types/attachment'
 
 const API_BASE_URL = 'http://localhost:3000/api/v1'
 
@@ -6,7 +6,7 @@ export interface TaskResponse {
   id: string
   title: string
   description?: string
-  status: 'Pending' | 'Ready' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked'
+  status: 'Pending' | 'InProgress' | 'Completed'
   dependencies: string[]
   created_at: string
   updated_at: string
@@ -21,7 +21,7 @@ export interface CreateTaskRequest {
 export interface UpdateTaskRequest {
   title?: string
   description?: string
-  status?: 'Pending' | 'Ready' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked'
+  status?: 'Pending' | 'InProgress' | 'Completed'
 }
 
 export interface GraphResponse {
@@ -47,6 +47,9 @@ export interface IntegrationsResponse {
   integrations: IntegrationStatus[]
   enabled_count: number
 }
+
+// Re-export attachment types for convenience
+export type { Attachment, CreateGitHubAttachmentRequest }
 
 class ApiService {
   private async request<T>(
@@ -117,6 +120,35 @@ class ApiService {
     })
   }
 
+  // Task attachments endpoints
+  async listTaskAttachments(taskId: string, attachmentType?: string): Promise<Attachment[]> {
+    const params = attachmentType ? `?attachment_type=${encodeURIComponent(attachmentType)}` : ''
+    return this.request<Attachment[]>(`/tasks/${taskId}/attachments${params}`)
+  }
+
+  async createGitHubAttachment(taskId: string, request: CreateGitHubAttachmentRequest): Promise<Attachment> {
+    return this.request<Attachment>(`/tasks/${taskId}/attachments/github`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  async getTaskAttachment(taskId: string, attachmentId: string): Promise<Attachment> {
+    return this.request<Attachment>(`/tasks/${taskId}/attachments/${attachmentId}`)
+  }
+
+  async deleteTaskAttachment(taskId: string, attachmentId: string): Promise<void> {
+    await this.request(`/tasks/${taskId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async syncGitHubAttachments(taskId: string): Promise<Attachment[]> {
+    return this.request<Attachment[]>(`/tasks/${taskId}/attachments/sync/github`, {
+      method: 'POST',
+    })
+  }
+
   // Integration endpoints
   async listIntegrations(): Promise<IntegrationsResponse> {
     return this.request<IntegrationsResponse>('/integrations')
@@ -125,35 +157,6 @@ class ApiService {
   async testIntegration(name: string): Promise<IntegrationStatus> {
     return this.request<IntegrationStatus>(`/integrations/${name}/test`, {
       method: 'POST',
-    })
-  }
-
-  // Credential endpoints
-  async listCredentials(): Promise<Credential[]> {
-    return this.request<Credential[]>('/credentials')
-  }
-
-  async createCredential(request: CreateCredentialRequest): Promise<Credential> {
-    return this.request<Credential>('/credentials', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    })
-  }
-
-  async getCredential(id: string): Promise<Credential> {
-    return this.request<Credential>(`/credentials/${id}`)
-  }
-
-  async updateCredential(id: string, request: UpdateCredentialRequest): Promise<Credential> {
-    return this.request<Credential>(`/credentials/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(request),
-    })
-  }
-
-  async deleteCredential(id: string): Promise<void> {
-    await this.request(`/credentials/${id}`, {
-      method: 'DELETE',
     })
   }
 

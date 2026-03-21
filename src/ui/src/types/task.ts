@@ -1,4 +1,4 @@
-export type TaskStatus = 'Pending' | 'Ready' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked'
+export type TaskStatus = 'Pending' | 'InProgress' | 'Completed'
 
 export type TaskPriority = 'low' | 'normal' | 'high' | 'critical'
 
@@ -34,11 +34,8 @@ export function getStatusKey(status: TaskStatus): string {
 export function getApiStatus(status: string): TaskStatus {
   switch (status) {
     case 'pending': return 'Pending'
-    case 'ready': return 'Ready'
     case 'in-progress': return 'InProgress'
     case 'completed': return 'Completed'
-    case 'failed': return 'Failed'
-    case 'blocked': return 'Blocked'
     default: return 'Pending'
   }
 }

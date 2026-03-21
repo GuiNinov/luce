@@ -10,16 +10,10 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     switch (status) {
       case 'Pending':
         return 'Pending'
-      case 'Ready':
-        return 'Ready'
       case 'InProgress':
         return 'In Progress'
       case 'Completed':
         return 'Completed'
-      case 'Failed':
-        return 'Failed'
-      case 'Blocked':
-        return 'Blocked'
       default:
         return status
     }
@@ -30,16 +24,10 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     switch (statusKey) {
       case 'pending':
         return 'pending'
-      case 'ready':
-        return 'ready'
       case 'in-progress':
         return 'in-progress'
       case 'completed':
         return 'completed'
-      case 'failed':
-        return 'failed'
-      case 'blocked':
-        return 'blocked'
       default:
         return 'pending'
     }

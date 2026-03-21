@@ -3,15 +3,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Header } from "@/components/layout/header"
 import { ListView } from "@/views/list-view"
 import { GraphView } from "@/views/graph-view"
-import { CredentialsView } from "@/views/credentials-view"
+import { IntegrationsView } from "@/views/integrations-view"
 import { useTasks } from "@/hooks/use-tasks"
 import { ViewMode } from "@/types/task"
-import { List, Network, Key } from 'lucide-react'
+import { List, Network, Settings } from 'lucide-react'
 
 function App() {
   const { tasks, edges, loading, error, addTask, updateTaskStatus, refreshTasks } = useTasks()
   const [selectedTasks, setSelectedTasks] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<ViewMode | 'credentials'>('list')
+  const [viewMode, setViewMode] = useState<ViewMode | 'integrations'>('list')
 
   const handleSelectTask = (taskId: string) => {
     setSelectedTasks(prev => 
@@ -63,7 +63,7 @@ function App() {
       <Header onAddTask={addTask} />
       
       <main className="container mx-auto px-4 py-6">
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode | 'credentials')}>
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode | 'integrations')}>
           <TabsList className="grid w-full max-w-[600px] grid-cols-3">
             <TabsTrigger value="list" className="flex items-center gap-2">
               <List className="h-4 w-4" />
@@ -73,9 +73,9 @@ function App() {
               <Network className="h-4 w-4" />
               Graph View
             </TabsTrigger>
-            <TabsTrigger value="credentials" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Credentials
+            <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Integrations
             </TabsTrigger>
           </TabsList>
 
@@ -99,8 +99,8 @@ function App() {
             />
           </TabsContent>
 
-          <TabsContent value="credentials" className="mt-6">
-            <CredentialsView />
+          <TabsContent value="integrations" className="mt-6">
+            <IntegrationsView />
           </TabsContent>
         </Tabs>
       </main>
