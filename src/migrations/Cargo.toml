@@ -1,0 +1,17 @@
+[package]
+name = "luce-migrations"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+luce-shared = { path = "../shared" }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+tokio = { version = "1.0", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.0"
+anyhow = "1.0"
+async-trait = "0.1"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.0"
