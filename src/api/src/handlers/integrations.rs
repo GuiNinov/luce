@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
-use luce_shared::LuceConfig;
+use luce_shared::{IntegrationType, CredentialData};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -60,73 +60,119 @@ pub struct GitHubSyncResponse {
 pub async fn list_integrations(
     Extension(service): Extension<Arc<TaskService>>,
 ) -> Result<Json<IntegrationsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let config = LuceConfig::from_env().unwrap_or_default();
-
     let mut integrations = Vec::new();
 
-    // GitHub Integration
-    let github_status = if let Some(github_config) = &config.integrations.github {
-        IntegrationStatus {
-            name: "github".to_string(),
-            enabled: true,
-            configured: true,
-            valid: github_config.is_valid(),
-            details: Some(serde_json::json!({
-                "repository": github_config.default_repo,
-                "webhook_url": github_config.webhook_url
-            })),
-        }
-    } else {
-        IntegrationStatus {
+    // GitHub Integration - check for stored credentials
+    let github_status = match service.credential_service.has_active_credentials_for_type(IntegrationType::GitHub).await {
+        Ok(true) => {
+            // Get the first active GitHub credential for details
+            match service.credential_service.get_first_active_credential_for_type(IntegrationType::GitHub).await {
+                Ok(Some(credential)) => IntegrationStatus {
+                    name: "github".to_string(),
+                    enabled: true,
+                    configured: true,
+                    valid: true,
+                    details: Some(serde_json::json!({
+                        "credential_name": credential.name,
+                        "credential_id": credential.id,
+                        "last_used": credential.last_used_at
+                    })),
+                },
+                _ => IntegrationStatus {
+                    name: "github".to_string(),
+                    enabled: false,
+                    configured: false,
+                    valid: false,
+                    details: Some(serde_json::json!({
+                        "error": "Failed to retrieve credential details"
+                    })),
+                }
+            }
+        },
+        _ => IntegrationStatus {
             name: "github".to_string(),
             enabled: false,
             configured: false,
             valid: false,
-            details: None,
+            details: Some(serde_json::json!({
+                "error": "No active GitHub credentials found"
+            })),
         }
     };
     integrations.push(github_status);
 
-    // Slack Integration
-    let slack_status = if let Some(slack_config) = &config.integrations.slack {
-        IntegrationStatus {
-            name: "slack".to_string(),
-            enabled: true,
-            configured: true,
-            valid: slack_config.is_valid(),
-            details: Some(serde_json::json!({
-                "default_channel": slack_config.default_channel
-            })),
-        }
-    } else {
-        IntegrationStatus {
+    // Slack Integration - check for stored credentials
+    let slack_status = match service.credential_service.has_active_credentials_for_type(IntegrationType::Slack).await {
+        Ok(true) => {
+            match service.credential_service.get_first_active_credential_for_type(IntegrationType::Slack).await {
+                Ok(Some(credential)) => IntegrationStatus {
+                    name: "slack".to_string(),
+                    enabled: true,
+                    configured: true,
+                    valid: true,
+                    details: Some(serde_json::json!({
+                        "credential_name": credential.name,
+                        "credential_id": credential.id,
+                        "last_used": credential.last_used_at
+                    })),
+                },
+                _ => IntegrationStatus {
+                    name: "slack".to_string(),
+                    enabled: false,
+                    configured: false,
+                    valid: false,
+                    details: Some(serde_json::json!({
+                        "error": "Failed to retrieve credential details"
+                    })),
+                }
+            }
+        },
+        _ => IntegrationStatus {
             name: "slack".to_string(),
             enabled: false,
             configured: false,
             valid: false,
-            details: None,
+            details: Some(serde_json::json!({
+                "error": "No active Slack credentials found"
+            })),
         }
     };
     integrations.push(slack_status);
 
-    // Linear Integration
-    let linear_status = if let Some(linear_config) = &config.integrations.linear {
-        IntegrationStatus {
-            name: "linear".to_string(),
-            enabled: true,
-            configured: true,
-            valid: linear_config.is_valid(),
-            details: Some(serde_json::json!({
-                "team_id": linear_config.team_id
-            })),
-        }
-    } else {
-        IntegrationStatus {
+    // Linear Integration - check for stored credentials
+    let linear_status = match service.credential_service.has_active_credentials_for_type(IntegrationType::Linear).await {
+        Ok(true) => {
+            match service.credential_service.get_first_active_credential_for_type(IntegrationType::Linear).await {
+                Ok(Some(credential)) => IntegrationStatus {
+                    name: "linear".to_string(),
+                    enabled: true,
+                    configured: true,
+                    valid: true,
+                    details: Some(serde_json::json!({
+                        "credential_name": credential.name,
+                        "credential_id": credential.id,
+                        "last_used": credential.last_used_at
+                    })),
+                },
+                _ => IntegrationStatus {
+                    name: "linear".to_string(),
+                    enabled: false,
+                    configured: false,
+                    valid: false,
+                    details: Some(serde_json::json!({
+                        "error": "Failed to retrieve credential details"
+                    })),
+                }
+            }
+        },
+        _ => IntegrationStatus {
             name: "linear".to_string(),
             enabled: false,
             configured: false,
             valid: false,
-            details: None,
+            details: Some(serde_json::json!({
+                "error": "No active Linear credentials found"
+            })),
         }
     };
     integrations.push(linear_status);
@@ -143,80 +189,156 @@ pub async fn test_integration(
     Extension(service): Extension<Arc<TaskService>>,
     Path(integration_name): Path<String>,
 ) -> Result<Json<IntegrationStatus>, (StatusCode, Json<serde_json::Value>)> {
-    let config = LuceConfig::from_env().unwrap_or_default();
-
     let status = match integration_name.as_str() {
         "github" => {
-            if let Some(github_config) = &config.integrations.github {
-                // TODO: Actually test GitHub API connection
-                IntegrationStatus {
-                    name: "github".to_string(),
-                    enabled: true,
-                    configured: true,
-                    valid: github_config.is_valid(),
-                    details: Some(serde_json::json!({
-                        "repository": github_config.default_repo,
-                        "test_result": "Connection test not implemented yet"
-                    })),
-                }
-            } else {
-                IntegrationStatus {
-                    name: "github".to_string(),
-                    enabled: false,
-                    configured: false,
-                    valid: false,
-                    details: Some(serde_json::json!({
-                        "error": "GitHub integration not configured"
-                    })),
+            match service.credential_service.get_first_credential_data_for_type(IntegrationType::GitHub).await {
+                Ok(Some(CredentialData::GitHub { access_token, default_repo, webhook_secret })) => {
+                    // TODO: Actually test GitHub API connection using the access_token
+                    IntegrationStatus {
+                        name: "github".to_string(),
+                        enabled: true,
+                        configured: true,
+                        valid: !access_token.is_empty(),
+                        details: Some(serde_json::json!({
+                            "default_repo": default_repo,
+                            "has_webhook_secret": webhook_secret.is_some(),
+                            "test_result": "Connection test not implemented yet"
+                        })),
+                    }
+                },
+                Ok(Some(_)) => {
+                    IntegrationStatus {
+                        name: "github".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "Invalid credential type for GitHub integration"
+                        })),
+                    }
+                },
+                Ok(None) => {
+                    IntegrationStatus {
+                        name: "github".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "GitHub integration not configured"
+                        })),
+                    }
+                },
+                Err(e) => {
+                    IntegrationStatus {
+                        name: "github".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": format!("Failed to retrieve GitHub credentials: {}", e)
+                        })),
+                    }
                 }
             }
         }
         "slack" => {
-            if let Some(slack_config) = &config.integrations.slack {
-                // TODO: Actually test Slack API connection
-                IntegrationStatus {
-                    name: "slack".to_string(),
-                    enabled: true,
-                    configured: true,
-                    valid: slack_config.is_valid(),
-                    details: Some(serde_json::json!({
-                        "test_result": "Connection test not implemented yet"
-                    })),
-                }
-            } else {
-                IntegrationStatus {
-                    name: "slack".to_string(),
-                    enabled: false,
-                    configured: false,
-                    valid: false,
-                    details: Some(serde_json::json!({
-                        "error": "Slack integration not configured"
-                    })),
+            match service.credential_service.get_first_credential_data_for_type(IntegrationType::Slack).await {
+                Ok(Some(CredentialData::Slack { bot_token, user_token, workspace })) => {
+                    // TODO: Actually test Slack API connection using the bot_token
+                    IntegrationStatus {
+                        name: "slack".to_string(),
+                        enabled: true,
+                        configured: true,
+                        valid: !bot_token.is_empty(),
+                        details: Some(serde_json::json!({
+                            "workspace": workspace,
+                            "has_user_token": user_token.is_some(),
+                            "test_result": "Connection test not implemented yet"
+                        })),
+                    }
+                },
+                Ok(Some(_)) => {
+                    IntegrationStatus {
+                        name: "slack".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "Invalid credential type for Slack integration"
+                        })),
+                    }
+                },
+                Ok(None) => {
+                    IntegrationStatus {
+                        name: "slack".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "Slack integration not configured"
+                        })),
+                    }
+                },
+                Err(e) => {
+                    IntegrationStatus {
+                        name: "slack".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": format!("Failed to retrieve Slack credentials: {}", e)
+                        })),
+                    }
                 }
             }
         }
         "linear" => {
-            if let Some(linear_config) = &config.integrations.linear {
-                // TODO: Actually test Linear API connection
-                IntegrationStatus {
-                    name: "linear".to_string(),
-                    enabled: true,
-                    configured: true,
-                    valid: linear_config.is_valid(),
-                    details: Some(serde_json::json!({
-                        "team_id": linear_config.team_id,
-                        "test_result": "Connection test not implemented yet"
-                    })),
-                }
-            } else {
-                IntegrationStatus {
-                    name: "linear".to_string(),
-                    enabled: false,
-                    configured: false,
-                    valid: false,
-                    details: Some(serde_json::json!({
-                        "error": "Linear integration not configured"
-                    })),
+            match service.credential_service.get_first_credential_data_for_type(IntegrationType::Linear).await {
+                Ok(Some(CredentialData::Linear { api_key, workspace })) => {
+                    // TODO: Actually test Linear API connection using the api_key
+                    IntegrationStatus {
+                        name: "linear".to_string(),
+                        enabled: true,
+                        configured: true,
+                        valid: !api_key.is_empty(),
+                        details: Some(serde_json::json!({
+                            "workspace": workspace,
+                            "test_result": "Connection test not implemented yet"
+                        })),
+                    }
+                },
+                Ok(Some(_)) => {
+                    IntegrationStatus {
+                        name: "linear".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "Invalid credential type for Linear integration"
+                        })),
+                    }
+                },
+                Ok(None) => {
+                    IntegrationStatus {
+                        name: "linear".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": "Linear integration not configured"
+                        })),
+                    }
+                },
+                Err(e) => {
+                    IntegrationStatus {
+                        name: "linear".to_string(),
+                        enabled: false,
+                        configured: false,
+                        valid: false,
+                        details: Some(serde_json::json!({
+                            "error": format!("Failed to retrieve Linear credentials: {}", e)
+                        })),
+                    }
                 }
             }
         }
@@ -237,27 +359,45 @@ pub async fn create_github_webhook(
     Extension(service): Extension<Arc<TaskService>>,
     Json(request): Json<WebhookRequest>,
 ) -> Result<(StatusCode, Json<WebhookResponse>), (StatusCode, Json<serde_json::Value>)> {
-    let config = LuceConfig::from_env().unwrap_or_default();
-
-    let github_config = config.integrations.github.ok_or_else(|| {
-        (
+    let github_data = service.credential_service
+        .get_first_credential_data_for_type(IntegrationType::GitHub)
+        .await
+        .map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to retrieve GitHub credentials: {}", e)
+            })),
+        ))?
+        .ok_or_else(|| (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "GitHub integration not configured"
             })),
-        )
-    })?;
+        ))?;
 
-    if !github_config.is_valid() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": "GitHub configuration is invalid"
-            })),
-        ));
-    }
+    let (access_token, default_repo) = match github_data {
+        CredentialData::GitHub { access_token, default_repo, .. } => {
+            if access_token.is_empty() {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": "GitHub access token is empty"
+                    })),
+                ));
+            }
+            (access_token, default_repo.unwrap_or_else(|| "N/A".to_string()))
+        },
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "Invalid credential type for GitHub integration"
+                })),
+            ));
+        }
+    };
 
-    // TODO: Implement actual webhook creation with GitHub API
+    // TODO: Implement actual webhook creation with GitHub API using access_token
     let webhook_response = WebhookResponse {
         id: uuid::Uuid::new_v4().to_string(),
         url: request.url,
@@ -272,10 +412,7 @@ pub async fn create_github_webhook(
         created_at: chrono::Utc::now(),
     };
 
-    println!(
-        "Created GitHub webhook for repository: {}",
-        github_config.default_repo
-    );
+    println!("Created GitHub webhook for repository: {}", default_repo);
 
     Ok((StatusCode::CREATED, Json(webhook_response)))
 }
@@ -284,33 +421,57 @@ pub async fn sync_github_repository(
     Extension(service): Extension<Arc<TaskService>>,
     Json(request): Json<GitHubSyncRequest>,
 ) -> Result<Json<GitHubSyncResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let config = LuceConfig::from_env().unwrap_or_default();
-
-    let github_config = config.integrations.github.ok_or_else(|| {
-        (
+    let github_data = service.credential_service
+        .get_first_credential_data_for_type(IntegrationType::GitHub)
+        .await
+        .map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to retrieve GitHub credentials: {}", e)
+            })),
+        ))?
+        .ok_or_else(|| (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "GitHub integration not configured"
             })),
-        )
-    })?;
+        ))?;
 
-    if !github_config.is_valid() {
-        return Err((
+    let (access_token, default_repo) = match github_data {
+        CredentialData::GitHub { access_token, default_repo, .. } => {
+            if access_token.is_empty() {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": "GitHub access token is empty"
+                    })),
+                ));
+            }
+            (access_token, default_repo)
+        },
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "Invalid credential type for GitHub integration"
+                })),
+            ));
+        }
+    };
+
+    let repository = request.repository
+        .or(default_repo)
+        .ok_or_else(|| (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": "GitHub configuration is invalid"
+                "error": "No repository specified and no default repository configured"
             })),
-        ));
-    }
-
-    let repository = request
-        .repository
-        .unwrap_or_else(|| github_config.default_repo.clone());
+        ))?;
+    
     let include_issues = request.include_issues.unwrap_or(true);
     let include_prs = request.include_prs.unwrap_or(true);
 
-    // TODO: Implement actual GitHub synchronization
+    // TODO: Implement actual GitHub synchronization using access_token
     println!("Syncing GitHub repository: {}", repository);
     println!("Include issues: {}", include_issues);
     println!("Include PRs: {}", include_prs);
